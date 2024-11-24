@@ -1,0 +1,101 @@
+### Java ###
+*.class
+*.log
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+hs_err_pid*
+replay_pid*
+
+### Maven ###
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+
+### IDE - IntelliJ IDEA ###
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+
+### IDE - VS Code ###
+.vscode/
+*.code-workspace
+
+### IDE - Eclipse ###
+.classpath
+.project
+.settings/
+bin/
+
+### 操作系统 ###
+### macOS ###
+.DS_Store
+.AppleDouble
+.LSOverride
+
+### Windows ###
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+### 项目特定文件 ###
+*.csv
+*.xlsx
+*.xls
+application-*.yml
+application-*.properties
+!application.yml
+!application.properties
+
+### 日志文件 ###
+logs/
+*.log
+
+### 其他 ###
+HELP.md
+.env
+node_modules/
+dist/
+tmp/
+temp/
+predict/cnn/Lib/
+predict/cnn/Scripts/
+predict/cnn/share/
+predict/llm/llm/Lib/
+predict/llm/llm/Scripts/
+predict/lstm/lstm/Include/
+predict/lstm/lstm/Lib/
+predict/lstm/lstm/Scripts/
+predict/lstm/lstm/share/
+predict/lstm/lstm/pyvenv.cfg
+
+moneyBomb/venv/
+moneyBomb/venv2/
+moneyBomb/.venv2/
+moneyBomb/venv3/
+moneyBomb/.idea/
+design-project-frontend/.vscode/
+/moneyBomb/.idea/
+/moneyBomb/backup/
+predict/cnn/.ipynb_checkpoints/
+predict/cnn/pyvenv.cfg
+predict/cnn/etc/jupyter/jupyter_notebook_config.d/jupyterlab.json
+predict/cnn/etc/jupyter/jupyter_server_config.d/jupyter_server_terminals.json
+predict/cnn/etc/jupyter/jupyter_server_config.d/jupyter-lsp-jupyter-server.json
+predict/cnn/etc/jupyter/jupyter_server_config.d/jupyterlab.json
+predict/cnn/etc/jupyter/jupyter_server_config.d/notebook_shim.json
+predict/cnn/etc/jupyter/jupyter_server_config.d/notebook.json
+predict/cnn/etc/jupyter/labconfig/page_config.json
+predict/llm/llm/pyvenv.cfg
