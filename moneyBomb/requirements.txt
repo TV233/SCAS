@@ -1,0 +1,6 @@
+itemadapter==0.9.0
+mysql-connector-python==9.1.0
+pandas==2.2.3
+schedule==1.2.2
+scrapy==2.11.2
+SQLAlchemy==2.0.36

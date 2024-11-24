@@ -99,3 +99,7 @@ predict/cnn/etc/jupyter/jupyter_server_config.d/notebook_shim.json
 predict/cnn/etc/jupyter/jupyter_server_config.d/notebook.json
 predict/cnn/etc/jupyter/labconfig/page_config.json
 predict/llm/llm/pyvenv.cfg
+moneyBomb/moneyBombTest/__pycache__
+moneyBomb/moneyBombTest/moneyBombTest/__pycache__
+moneyBomb/moneyBombTest/moneyBombTest/data/__pycache__
+moneyBomb/moneyBombTest/moneyBombTest/spiders/__pycache__
