@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.kclgroup.backend.mapper.StockIndicesMapper">
+
+    <resultMap id="BaseResultMap" type="com.kclgroup.backend.pojo.entity.StockIndices">
+            <id property="id" column="id" jdbcType="INTEGER"/>
+            <result property="symbol" column="symbol" jdbcType="VARCHAR"/>
+            <result property="name" column="name" jdbcType="VARCHAR"/>
+            <result property="indexValue" column="index_value" jdbcType="DECIMAL"/>
+            <result property="changePercent" column="change_percent" jdbcType="DECIMAL"/>
+            <result property="changeAmount" column="change_amount" jdbcType="DECIMAL"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,symbol,name,
+        index_value,change_percent,change_amount
+    </sql>
+</mapper>

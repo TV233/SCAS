@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.kclgroup.backend.mapper.SectorsAndStocksMapper">
+
+    <resultMap id="BaseResultMap" type="com.kclgroup.backend.pojo.entity.SectorsAndStocks">
+            <result property="sector" column="sector" jdbcType="VARCHAR"/>
+            <result property="reason" column="reason" jdbcType="VARCHAR"/>
+            <result property="stockCode" column="stock_code" jdbcType="CHAR"/>
+            <result property="stockName" column="stock_name" jdbcType="VARCHAR"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        sector,reason,stock_code,
+        stock_name
+    </sql>
+</mapper>

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.kclgroup.backend.mapper.IndexKlinesMapper">
+
+    <resultMap id="BaseResultMap" type="com.kclgroup.backend.pojo.entity.IndexKlines">
+            <id property="id" column="id" jdbcType="INTEGER"/>
+            <result property="indexCode" column="index_code" jdbcType="VARCHAR"/>
+            <result property="indexName" column="index_name" jdbcType="VARCHAR"/>
+            <result property="dateTime" column="date_time" jdbcType="VARCHAR"/>
+            <result property="open" column="open" jdbcType="DECIMAL"/>
+            <result property="close" column="close" jdbcType="DECIMAL"/>
+            <result property="high" column="high" jdbcType="DECIMAL"/>
+            <result property="low" column="low" jdbcType="DECIMAL"/>
+            <result property="volume" column="volume" jdbcType="BIGINT"/>
+            <result property="value" column="value" jdbcType="DECIMAL"/>
+            <result property="lastClose" column="last_close" jdbcType="DECIMAL"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,index_code,index_name,
+        date_time,open,close,
+        high,low,volume,
+        value,last_close
+    </sql>
+</mapper>

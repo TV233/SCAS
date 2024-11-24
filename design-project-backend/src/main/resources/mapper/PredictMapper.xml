@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.kclgroup.backend.mapper.PredictMapper">
+
+    <resultMap id="BaseResultMap" type="com.kclgroup.backend.pojo.entity.Predict">
+            <id property="id" column="id" jdbcType="INTEGER"/>
+            <result property="stockCode" column="stock_code" jdbcType="CHAR"/>
+            <result property="ratingOrgNum" column="RATING_ORG_NUM" jdbcType="INTEGER"/>
+            <result property="ratingBuyNum" column="RATING_BUY_NUM" jdbcType="DECIMAL"/>
+            <result property="ratingAddNum" column="RATING_ADD_NUM" jdbcType="DECIMAL"/>
+            <result property="ratingNeutralNum" column="RATING_NEUTRAL_NUM" jdbcType="DECIMAL"/>
+            <result property="ratingReduceNum" column="RATING_REDUCE_NUM" jdbcType="DECIMAL"/>
+            <result property="ratingSaleNum" column="RATING_SALE_NUM" jdbcType="DECIMAL"/>
+            <result property="year1" column="YEAR1" jdbcType="INTEGER"/>
+            <result property="eps1" column="EPS1" jdbcType="DECIMAL"/>
+            <result property="year2" column="YEAR2" jdbcType="INTEGER"/>
+            <result property="eps2" column="EPS2" jdbcType="DECIMAL"/>
+            <result property="year3" column="YEAR3" jdbcType="INTEGER"/>
+            <result property="eps3" column="EPS3" jdbcType="DECIMAL"/>
+            <result property="year4" column="YEAR4" jdbcType="INTEGER"/>
+            <result property="eps4" column="EPS4" jdbcType="DECIMAL"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,stock_code,RATING_ORG_NUM,
+        RATING_BUY_NUM,RATING_ADD_NUM,RATING_NEUTRAL_NUM,
+        RATING_REDUCE_NUM,RATING_SALE_NUM,YEAR1,
+        EPS1,YEAR2,EPS2,
+        YEAR3,EPS3,YEAR4,
+        EPS4
+    </sql>
+</mapper>

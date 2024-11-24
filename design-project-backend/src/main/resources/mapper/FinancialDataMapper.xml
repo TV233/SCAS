@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.kclgroup.backend.mapper.FinancialDataMapper">
+
+    <resultMap id="BaseResultMap" type="com.kclgroup.backend.pojo.entity.FinancialData">
+            <result property="stockCode" column="stock_code" jdbcType="CHAR"/>
+            <result property="year" column="year" jdbcType="CHAR"/>
+            <result property="totalOperatereveIncrease" column="total_operatereve_increase" jdbcType="DOUBLE"/>
+            <result property="parentNetprofitIncrease" column="parent_netprofit_increase" jdbcType="DOUBLE"/>
+            <result property="dnetprofitatpcTcalIncrease" column="dnetprofitatpc_tcal_increase" jdbcType="DOUBLE"/>
+            <result property="summary" column="summary" jdbcType="VARCHAR"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        stock_code,year,total_operatereve_increase,
+        parent_netprofit_increase,dnetprofitatpc_tcal_increase,summary
+    </sql>
+</mapper>
