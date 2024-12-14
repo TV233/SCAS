@@ -4,8 +4,10 @@ import time
 from datetime import datetime
 
 # 定义Python解释器和main.py的完整路径
-python_interpreter = '/Users/vktia/dev/2024/design-project/moneyBomb/venv3/bin/python'
-main_py_path = '/Users/vktia/dev/2024/design-project/moneyBomb/moneyBombTest/moneyBombTest/main.py'
+python_interpreter = '../../venv3/bin/python'
+main_py_path = 'main.py'
+# /Users/vktia/dev/SCAS/moneyBomb/moneyBombTest/moneyBombTest/loop.py
+# /Users/vktia/dev/SCAS/moneyBomb/venv3/bin/python
 
 # 运行main.py函数
 def run_main_py():
