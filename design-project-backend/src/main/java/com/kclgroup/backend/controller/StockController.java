@@ -1,15 +1,10 @@
 package com.kclgroup.backend.controller;
 
-import com.kclgroup.backend.pojo.entity.FinancialData;
-import com.kclgroup.backend.pojo.entity.Predict;
-import com.kclgroup.backend.pojo.entity.Result;
-import com.kclgroup.backend.pojo.entity.StockInfo;
+import com.kclgroup.backend.pojo.entity.*;
 import com.kclgroup.backend.pojo.vo.FinancialDataVo;
+import com.kclgroup.backend.pojo.vo.KlineVo;
 import com.kclgroup.backend.pojo.vo.StockInfoVo;
-import com.kclgroup.backend.service.FinancialDataService;
-import com.kclgroup.backend.service.PredictService;
-import com.kclgroup.backend.service.StockInfoService;
-import com.kclgroup.backend.service.StockPricesService;
+import com.kclgroup.backend.service.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,6 +26,8 @@ public class StockController {
     PredictService predictService;
     @Autowired
     FinancialDataService financialDataService;
+    @Autowired
+    StockKlineService stockKlineService;
 
     //根据股票代码获取股票信息
     @GetMapping()
@@ -71,5 +68,11 @@ public class StockController {
     public Result<List<StockInfo>> findStock(@RequestParam String stockName) {
         List<StockInfo> stockInfo = stockInfoService.getStockInfoByStockName(stockName);
         return Result.success(stockInfo);
+    }
+
+    @GetMapping("/kline")
+    public Result<List<KlineVo>> getKlineData(@RequestParam String stockCode) {
+        List<KlineVo> stockKlines = stockKlineService.getStockKline(stockCode);
+        return Result.success(stockKlines);
     }
 }

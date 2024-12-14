@@ -7,6 +7,7 @@ import { request } from '@/service/request';
 
 const stockInfoData = ref([]);
 const stockDetailData = ref([]);
+const klineData = ref([]);
 
 const route = useRoute();
 const router = useRouter();
@@ -59,6 +60,27 @@ async function fetchstockDetailData(stockCode) {
     // console.error('Error fetching stock indices:', error);
   }
 }
+async function fetchKlineData(stockCode) {
+  try {
+    const result = await request({
+      url: '/stock/kline',
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      },
+      params: {
+        stockCode
+      },
+      method: 'GET'
+    });
+    if (result) {
+      klineData.value = result.data;
+      updateKlineChart();
+    }
+  } catch (error) {
+    console.error('Error fetching kline data:', error);
+  }
+}
+
 
 const stockDetail = ref({
   stockCode: '000821',
@@ -178,13 +200,25 @@ onMounted(() => {
     fetchStockFinancialData(stockCode);
     fetchstockDetailData(stockCode);
   }
+  if (klineChartRef.value) {
+    klineChartInstance = echarts.init(klineChartRef.value);
+    fetchKlineData(stockCode);
+  }
 });
 
 onUnmounted(() => {
   if (chartInstance) {
     chartInstance.dispose();
   }
+  if (klineChartInstance) {
+    klineChartInstance.dispose();
+  }
 });
+
+window.addEventListener('resize', () => {
+  klineChartInstance?.resize();
+});
+
 const barChartRef = ref<HTMLDivElement | null>(null);
 let barChartInstance: echarts.ECharts | null = null;
 
@@ -579,6 +613,82 @@ const onAdd = async code => {
     // alert('已在自选股中');
   }
 };
+
+// 添加K线图的ref和实例
+const klineChartRef = ref<HTMLDivElement | null>(null);
+let klineChartInstance: echarts.ECharts | null = null;
+
+// 添加K线图配置和更新函数
+function updateKlineChart() {
+  const klineOption = {
+    backgroundColor: 'transparent',
+    title: {
+      text: 'K线图',
+      left: 'center'
+    },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'cross'
+      }
+    },
+    grid: {
+      left: '10%',
+      right: '10%',
+      bottom: '15%'
+    },
+    xAxis: {
+      type: 'category',
+      data: klineData.value.map(item => item.dateTime),
+      scale: true,
+      boundaryGap: false,
+      axisLine: { onZero: false },
+      splitLine: { show: false },
+      min: 'dataMin',
+      max: 'dataMax'
+    },
+    yAxis: {
+      scale: true,
+      splitArea: {
+        show: true
+      }
+    },
+    dataZoom: [
+      {
+        type: 'inside',
+        start: 50,
+        end: 100
+      },
+      {
+        show: true,
+        type: 'slider',
+        bottom: '3%',
+        start: 50,
+        end: 100
+      }
+    ],
+    series: [
+      {
+        name: 'K线',
+        type: 'candlestick',
+        data: klineData.value.map(item => [
+          item.openPrice,
+          item.closePrice,
+          item.lowPrice,
+          item.highPrice
+        ]),
+        itemStyle: {
+          color: '#ef232a',
+          color0: '#14b143',
+          borderColor: '#ef232a',
+          borderColor0: '#14b143'
+        }
+      }
+    ]
+  };
+
+  klineChartInstance?.setOption(klineOption);
+}
 </script>
 
 <template>
@@ -643,6 +753,9 @@ const onAdd = async code => {
       </ACard>
     </ARow>
     <ACard :bordered="false" class="mt-4 w-full card-wrapper">
+      <div ref="klineChartRef" class="kline-chart-container"></div>
+    </ACard>
+    <ACard :bordered="false" class="mt-4 w-full card-wrapper">
       <div ref="lineChartRef" class="line-chart-container mb--14 mt--5 flex-x-center"></div>
     </ACard>
   </div>
@@ -660,6 +773,10 @@ const onAdd = async code => {
 .line-chart-container {
   width: 100%;
   height: 20rem;
+}
+.kline-chart-container {
+  width: 100%;
+  height: 400px;
 }
 </style>
 (: { data: any; })(: { data: any; }): { name: any; value: any; }: number: number: number: number

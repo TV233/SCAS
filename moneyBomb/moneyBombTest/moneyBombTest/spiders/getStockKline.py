@@ -9,7 +9,8 @@ class GetStockKline(scrapy.Spider):
 
     def start_requests(self):
         # secid 是股票的代码，1表示上证，0表示深证。例如 1.601360 代表某股票
-        secid = "1.601360"  # 替换成你需要爬取的股票代码
+        self.stock_code = "601360"  # 存储股票代码
+        secid = f"1.{self.stock_code}"  # 替换成你需要爬取的股票代码
         base_url = ("https://push2his.eastmoney.com/api/qt/stock/kline/get?"
                     "fields1=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13&"
                     "fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61&"
@@ -37,13 +38,14 @@ class GetStockKline(scrapy.Spider):
                 ) = kline.split(',')
 
                 klines.append({
+                    'stock_code': self.stock_code,
                     'date_time': date_time,
-                    'open': float(open_price),
-                    'close': float(close_price),
-                    'high': float(high_price),
-                    'low': float(low_price),
+                    'open_price': float(open_price),
+                    'close_price': float(close_price),
+                    'high_price': float(high_price),
+                    'low_price': float(low_price),
                     'volume': int(volume),
-                    'value': float(value),
+                    'trade_value': float(value),
                     'amplitude': float(amplitude),
                     'up_down_range': float(up_down_range),
                     'up_down_price': float(up_down_price),
@@ -55,6 +57,11 @@ class GetStockKline(scrapy.Spider):
             self.data_frame = pd.concat([self.data_frame, new_data], ignore_index=True)
 
             # 将数据保存为CSV文件
-            self.data_frame.to_csv(f'data/{stock_data["market"]}_{stock_data["code"]}_klines.csv', index=False, encoding='utf-8-sig')
+            self.data_frame.to_csv(
+                f'data/{stock_data["market"]}_{stock_data["code"]}_klines.csv',
+                index=False,
+                encoding='utf-8-sig',
+                float_format='%.2f'  # 保留2位小数
+            )
         else:
             self.log('No data found for this stock.')
