@@ -153,7 +153,7 @@ def process_csv_to_mysql():
             stmt = select(stock_info_table).where(stock_info_table.columns.stock_code == row['stock_code'])
             result = connection.execute(stmt)
             if result.fetchone() is None:
-                # 如果这个股票代码在数据库中不存在，那么插入新条目
+                # 如果这个股���代码在数据库中不存在，那么插入新条目
                 stmt = insert(stock_info_table).values(
                     stock_code=row['stock_code'],
                     stock_name=row['stock_name']
@@ -262,6 +262,7 @@ if __name__ == '__main__':
     crawler.crawl('getPredict')
     crawler.crawl('getMainIndex')
     crawler.crawl('getIndexKlines')
+    crawler.crawl('getStockKline')
     # crawler.crawl('getComment')
     crawler.start()
 
