@@ -3,6 +3,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import * as echarts from 'echarts';
 import { request } from '@/service/request';
+import 'echarts-wordcloud';
 // import { fetchStockDataAndPrediction, fetchStockFinancialData } from '@/service/api/stock-detail';
 
 const stockInfoData = ref([]);
@@ -610,7 +611,7 @@ const onAdd = async code => {
       alert('已在自选股中');
     }
   } catch (error) {
-    // alert('已在自选股中');
+    // alert('已在自��中');
   }
 };
 
@@ -618,23 +619,47 @@ const onAdd = async code => {
 const klineChartRef = ref<HTMLDivElement | null>(null);
 let klineChartInstance: echarts.ECharts | null = null;
 
-// 添加K线图配置和更新函数
+// 修改K线图配置和更新函数
 function updateKlineChart() {
+  // 如果没有K线数据，直接返回
+  if (!klineData.value?.length) {
+    return;
+  }
+
+  // 基础配置
   const klineOption = {
     backgroundColor: 'transparent',
     title: {
-      text: 'K线图',
+      // 根据是否有情感数据来设置标题
+      text: sentimentData.value?.length ? 'K线图与评论情感趋势' : 'K线图',
       left: 'center'
     },
     tooltip: {
       trigger: 'axis',
       axisPointer: {
         type: 'cross'
+      },
+      formatter: function (params) {
+        const date = params[0].axisValue;
+        let res = `${date}<br/>`;
+        params.forEach(param => {
+          if (param.seriesName === 'K线') {
+            res += `${param.seriesName}: 开盘${param.data[1]}, 收盘${param.data[2]}, 最低${param.data[3]}, 最高${param.data[4]}<br/>`;
+          } else {
+            res += `${param.seriesName}: ${param.data}<br/>`;
+          }
+        });
+        return res;
       }
+    },
+    legend: {
+      // 根据是否有情感数据来设置图例
+      data: sentimentData.value?.length ? ['K线', '情感值', '评论数'] : ['K线'],
+      top: '30px'
     },
     grid: {
       left: '10%',
-      right: '10%',
+      right: sentimentData.value?.length ? '10%' : '5%', // 如果没有情感数据，可以减少右边距
       bottom: '15%'
     },
     xAxis: {
@@ -647,12 +672,49 @@ function updateKlineChart() {
       min: 'dataMin',
       max: 'dataMax'
     },
-    yAxis: {
-      scale: true,
-      splitArea: {
-        show: true
-      }
-    },
+    yAxis: [
+      {
+        scale: true,
+        splitArea: {
+          show: true
+        }
+      },
+      // 只在有情感数据时添加额外的y轴
+      ...(sentimentData.value?.length ? [
+        {
+          scale: true,
+          name: '情感值',
+          min: 0,
+          max: 1,
+          position: 'right',
+          offset: 80,
+          axisLine: {
+            show: true,
+            lineStyle: {
+              color: '#ff7f0e'
+            }
+          },
+          axisLabel: {
+            formatter: '{value}'
+          }
+        },
+        {
+          scale: true,
+          name: '评论数',
+          position: 'right',
+          offset: 160,
+          axisLine: {
+            show: true,
+            lineStyle: {
+              color: '#2ca02c'
+            }
+          },
+          axisLabel: {
+            formatter: '{value}'
+          }
+        }
+      ] : [])
+    ],
     dataZoom: [
       {
         type: 'inside',
@@ -687,8 +749,204 @@ function updateKlineChart() {
     ]
   };
 
+  // 只在有情感数据时添加情感相关的系列
+  if (sentimentData.value?.length) {
+    const dateMap = new Map();
+    sentimentData.value.forEach(item => {
+      dateMap.set(item.date, item);
+    });
+
+    const alignedSentimentData = klineData.value.map(kline => {
+      const sentiment = dateMap.get(kline.dateTime);
+      return sentiment ? sentiment.sentimentAvg : null;
+    });
+
+    const alignedCommentData = klineData.value.map(kline => {
+      const sentiment = dateMap.get(kline.dateTime);
+      return sentiment ? sentiment.commentCount : null;
+    });
+
+    klineOption.series.push(
+      {
+        name: '情感值',
+        type: 'line',
+        yAxisIndex: 1,
+        data: alignedSentimentData,
+        smooth: true,
+        lineStyle: {
+          width: 2
+        },
+        itemStyle: {
+          color: '#ff7f0e'
+        }
+      },
+      {
+        name: '评论数',
+        type: 'bar',
+        yAxisIndex: 2,
+        data: alignedCommentData,
+        itemStyle: {
+          color: '#2ca02c'
+        }
+      }
+    );
+  }
+
   klineChartInstance?.setOption(klineOption);
 }
+
+// 修改数据加载逻辑
+onMounted(async () => {
+  // ... 其他初始化代码 ...
+
+  if (klineChartRef.value) {
+    klineChartInstance = echarts.init(klineChartRef.value);
+    // 先加载K线数据
+    await fetchKlineData(stockCode);
+    // 再加载情感数据
+    await fetchSentimentData(stockCode);
+  }
+
+  if (wordCloudRef.value) {
+    wordCloudInstance = echarts.init(wordCloudRef.value);
+    fetchWordFrequencyData(stockCode);
+  }
+});
+
+// 修改fetchSentimentData函数
+async function fetchSentimentData(stockCode) {
+  try {
+    const result = await request({
+      url: '/stock/sentiment',
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      },
+      params: {
+        stockCode
+      },
+      method: 'GET'
+    });
+    if (result) {
+      sentimentData.value = result.data;
+      // 确保K线数据已加载后再更新图表
+      if (klineData.value?.length) {
+        updateKlineChart();
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching sentiment data:', error);
+  }
+}
+
+// 添加新的响应式数据
+const sentimentData = ref([]);
+const wordFreqData = ref([]);
+
+// 添加新的请求函数
+async function fetchWordFrequencyData(stockCode) {
+  try {
+    const result = await request({
+      url: '/stock/word-frequency',
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      },
+      params: {
+        stockCode
+      },
+      method: 'GET'
+    });
+    if (result) {
+      wordFreqData.value = result.data;
+      updateWordCloudChart();
+    }
+  } catch (error) {
+    console.error('Error fetching word frequency data:', error);
+  }
+}
+
+// 添加图表ref和实例
+const sentimentChartRef = ref<HTMLDivElement | null>(null);
+const wordCloudChartRef = ref<HTMLDivElement | null>(null);
+let sentimentChartInstance: echarts.ECharts | null = null;
+let wordCloudChartInstance: echarts.ECharts | null = null;
+
+// 更新词云图表
+function updateWordCloudChart() {
+  const option = {
+    backgroundColor: 'transparent',
+    title: {
+      text: '评论关键词',
+      left: 'center'
+    },
+    tooltip: {
+      show: true
+    },
+    series: [{
+      type: 'wordCloud',
+      shape: 'circle',
+      left: 'center',
+      top: 'center',
+      width: '70%',
+      height: '80%',
+      right: null,
+      bottom: null,
+      sizeRange: [12, 60],
+      rotationRange: [-90, 90],
+      rotationStep: 45,
+      gridSize: 8,
+      drawOutOfBound: false,
+      textStyle: {
+        fontFamily: 'sans-serif',
+        fontWeight: 'bold',
+        color: function () {
+          return 'rgb(' + [
+            Math.round(Math.random() * 160),
+            Math.round(Math.random() * 160),
+            Math.round(Math.random() * 160)
+          ].join(',') + ')';
+        }
+      },
+      emphasis: {
+        focus: 'self',
+        textStyle: {
+          shadowBlur: 10,
+          shadowColor: '#333'
+        }
+      },
+      data: wordFreqData.value.map(item => ({
+        name: item.word,
+        value: item.frequency,
+        textStyle: {
+          color: `rgb(${Math.round(Math.random() * 160)},${Math.round(Math.random() * 160)},${Math.round(Math.random() * 160)})`
+        }
+      }))
+    }]
+  };
+
+  wordCloudChartInstance?.setOption(option);
+}
+
+// 修改onMounted钩子
+onMounted(() => {
+  // ... 原有的初始化代码 ...
+
+  if (sentimentChartRef.value) {
+    sentimentChartInstance = echarts.init(sentimentChartRef.value);
+    fetchSentimentData(stockCode);
+  }
+
+  if (wordCloudChartRef.value) {
+    wordCloudChartInstance = echarts.init(wordCloudChartRef.value);
+    fetchWordFrequencyData(stockCode);
+  }
+});
+
+// 修改onUnmounted钩子
+onUnmounted(() => {
+  // ... 原有的销毁代码 ...
+  sentimentChartInstance?.dispose();
+  wordCloudChartInstance?.dispose();
+});
 </script>
 
 <template>
@@ -758,6 +1016,9 @@ function updateKlineChart() {
     <ACard :bordered="false" class="mt-4 w-full card-wrapper">
       <div ref="lineChartRef" class="line-chart-container mb--14 mt--5 flex-x-center"></div>
     </ACard>
+    <ACard :bordered="false" class="mt-4 w-full card-wrapper">
+      <div ref="wordCloudChartRef" class="wordcloud-chart-container"></div>
+    </ACard>
   </div>
 </template>
 
@@ -778,5 +1039,9 @@ function updateKlineChart() {
   width: 100%;
   height: 400px;
 }
+.sentiment-chart-container,
+.wordcloud-chart-container {
+  width: 100%;
+  height: 400px;
+}
 </style>
-(: { data: any; })(: { data: any; }): { name: any; value: any; }: number: number: number: number

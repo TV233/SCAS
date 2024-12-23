@@ -3,7 +3,9 @@ package com.kclgroup.backend.controller;
 import com.kclgroup.backend.pojo.entity.*;
 import com.kclgroup.backend.pojo.vo.FinancialDataVo;
 import com.kclgroup.backend.pojo.vo.KlineVo;
+import com.kclgroup.backend.pojo.vo.SentimentTrendVo;
 import com.kclgroup.backend.pojo.vo.StockInfoVo;
+import com.kclgroup.backend.pojo.vo.WordFrequencyVo;
 import com.kclgroup.backend.service.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
@@ -28,6 +30,10 @@ public class StockController {
     FinancialDataService financialDataService;
     @Autowired
     StockKlineService stockKlineService;
+    @Autowired
+    SentimentTrendService sentimentTrendService;
+    @Autowired
+    WordFrequencyService wordFrequencyService;
 
     //根据股票代码获取股票信息
     @GetMapping()
@@ -74,5 +80,27 @@ public class StockController {
     public Result<List<KlineVo>> getKlineData(@RequestParam String stockCode) {
         List<KlineVo> stockKlines = stockKlineService.getStockKline(stockCode);
         return Result.success(stockKlines);
+    }
+
+    // 获取情感趋势数据
+    @GetMapping("/sentiment")
+    public Result<List<SentimentTrendVo>> getSentimentTrend(@RequestParam String stockCode) {
+        try {
+            List<SentimentTrendVo> trendData = sentimentTrendService.getSentimentTrend(stockCode);
+            return Result.success(trendData);
+        } catch (Exception e) {
+            return Result.error("获取情感趋势数据失败：" + e.getMessage());
+        }
+    }
+
+    // 获取词频数据
+    @GetMapping("/word-frequency")
+    public Result<List<WordFrequencyVo>> getWordFrequency(@RequestParam String stockCode) {
+        try {
+            List<WordFrequencyVo> wordFreqData = wordFrequencyService.getWordFrequency(stockCode);
+            return Result.success(wordFreqData);
+        } catch (Exception e) {
+            return Result.error("获取词频数据失败：" + e.getMessage());
+        }
     }
 }
