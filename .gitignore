@@ -105,3 +105,6 @@ moneyBomb/moneyBombTest/moneyBombTest/data/__pycache__
 moneyBomb/moneyBombTest/moneyBombTest/spiders/__pycache__
 
 design-project-backend/src/test
+/comment-analysis/data/
+/comment-analysis/venv/
+/comment-analysis/analysis_plots/

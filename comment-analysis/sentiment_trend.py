@@ -20,9 +20,17 @@ def generate_sentiment_trend(stock_code):
     
     # 转换评论时间格式，根据月份判断年份
     def get_date_with_year(date_str):
-        month = int(date_str.split('-')[0])
-        # 如果月份是1-10月，年份是2024年；如果是11-12月，年份是2023年
-        year = 2024 if month <= 10 else 2023
+        # 处理格式如 "12-26 02:31"
+        date_parts = date_str.split(' ')[0]  # 先分割日期和时间
+        month, day = map(int, date_parts.split('-'))  # 分别获取月和日
+        
+        current_year = datetime.now().year
+        current_month = datetime.now().month
+        current_day = datetime.now().day
+        
+        # 如果当前是2024年，且评论日期是超过当前日期的，则年份应为2023
+        year = current_year - 1 if (month >= current_month and day > current_day) else current_year
+        
         return pd.to_datetime(f'{year}-{date_str}', format='%Y-%m-%d %H:%M')
     
     df['comment_date'] = df['update_time'].apply(get_date_with_year)

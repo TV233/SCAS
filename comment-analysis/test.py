@@ -294,13 +294,13 @@ def crawl_stock_comments(stock_code):
             current_page += 1
         
         # 当前代理IP完成任务，根据实际爬取页数决定休息时间
-        if pages_with_current_ip > 0:
-            sleep_time = random.uniform(10, 15)  # 符合API的调用频率限制
-            print(Fore.YELLOW + f'当前代理完成{pages_with_current_ip}页爬取，休息{sleep_time:.1f}秒...')
-            time.sleep(sleep_time)
-        else:
-            # 如果当前代理一个页面都没爬成功，短暂休息后继续
-            time.sleep(random.uniform(3, 5))
+        # if pages_with_current_ip > 0:
+        #     sleep_time = random.uniform(10, 15)  # 符合API的调用频率限制
+        #     print(Fore.YELLOW + f'当前代理完成{pages_with_current_ip}页爬取，休息{sleep_time:.1f}秒...')
+        #     time.sleep(sleep_time)
+        # else:
+        #     # 如果当前代理一个页面都没爬成功，短暂休息后继续
+        #     time.sleep(random.uniform(3, 5))
 
 def distribute_crawl_tasks():
     """分布式爬取任务分配"""
@@ -317,9 +317,9 @@ def distribute_crawl_tasks():
             crawl_stock_comments(stock_code)
         
         # 每组之间休息较短时间
-        sleep_time = random.uniform(30, 60)  # 休息30-60秒
-        print(Fore.YELLOW + f'当前批次完成，休息{sleep_time:.1f}秒...')
-        time.sleep(sleep_time)
+        # sleep_time = random.uniform(30, 60)  # 休息30-60秒
+        # print(Fore.YELLOW + f'当前批次完成，休息{sleep_time:.1f}秒...')
+        # time.sleep(sleep_time)
 
 if __name__ == '__main__':
     try:
