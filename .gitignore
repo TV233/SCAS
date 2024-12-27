@@ -108,3 +108,4 @@ design-project-backend/src/test
 /comment-analysis/data/
 /comment-analysis/venv/
 /comment-analysis/analysis_plots/
+/comment-analysis/__pycache__

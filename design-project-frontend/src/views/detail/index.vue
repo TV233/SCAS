@@ -6,8 +6,38 @@ import { request } from '@/service/request';
 import 'echarts-wordcloud';
 // import { fetchStockDataAndPrediction, fetchStockFinancialData } from '@/service/api/stock-detail';
 
-const stockInfoData = ref([]);
-const stockDetailData = ref([]);
+// 定义接口类型
+interface StockDetailData {
+  stockCode: string;
+  stockName: string;
+  latestPrice: string;
+  priceChangeRate: string;
+  priceChange: string;
+  riseSpeed: string;
+  ratingOrgNum: number;
+  ratingBuyNum: number;
+  ratingAddNum: number;
+  ratingNeutralNum: number;
+  ratingReduceNum: number;
+  ratingSaleNum: number;
+  year1: number;
+  eps1: number;
+  year2: number;
+  eps2: number;
+  year3: number;
+  eps3: number;
+  year4: number;
+  eps4: number;
+}
+
+interface StockInfoData {
+  stockCode: string;
+  summary: string;
+  financialDataByYear: Record<string, any>;
+}
+
+const stockDetailData = ref<StockDetailData>({} as StockDetailData);
+const stockInfoData = ref<StockInfoData>({} as StockInfoData);
 const klineData = ref([]);
 
 const route = useRoute();
@@ -17,7 +47,7 @@ console.log(stockCode);
 
 // const routeQuery = computed(() => JSON.stringify(route.query));
 
-async function fetchStockFinancialData(stockCode) {
+async function fetchStockFinancialData(stockCode: string) {
   try {
     const result = await request({
       url: '/stock/financial_data',
@@ -29,17 +59,15 @@ async function fetchStockFinancialData(stockCode) {
       },
       method: 'GET'
     });
-    if (result) {
-      // console.log(result.data);
-      stockInfoData.value = result.data; // 存储获取到的股票指数数据
-    } else {
-      // console.error('Error fetching stock indices:', result.message);
+    if (result?.data) {
+      stockInfoData.value = result.data;
     }
   } catch (error) {
-    // console.error('Error fetching stock indices:', error);
+    console.error('Error fetching financial data:', error);
   }
 }
-async function fetchstockDetailData(stockCode) {
+
+async function fetchstockDetailData(stockCode: string) {
   try {
     const result = await request({
       url: '/stock',
@@ -51,16 +79,14 @@ async function fetchstockDetailData(stockCode) {
       },
       method: 'GET'
     });
-    if (result) {
-      console.log(result.data);
-      stockDetailData.value = result.data; // 存储获取到的股票指数数据
-    } else {
-      // console.error('Error fetching stock indices:', result.message);
+    if (result?.data) {
+      stockDetailData.value = result.data;
     }
   } catch (error) {
-    // console.error('Error fetching stock indices:', error);
+    console.error('Error fetching stock detail:', error);
   }
 }
+
 async function fetchKlineData(stockCode) {
   try {
     const result = await request({
@@ -171,11 +197,11 @@ const pieChartConfig = {
       type: 'pie',
       radius: '40%', // 缩小图表半径
       data: [
-        { value: stockDetail.value.ratingBuyNum, name: '买进指数', itemStyle: { color: '#d62728' } }, // 红色
-        { value: stockDetail.value.ratingAddNum, name: '增持指数', itemStyle: { color: '#ff7f0e' } }, // 橙色
-        { value: stockDetail.value.ratingNeutralNum || 0, name: '观望指数', itemStyle: { color: '#2ca02c' } }, // 绿色
-        { value: stockDetail.value.ratingReduceNum || 0, name: '减持指数', itemStyle: { color: '#9467bd' } }, // 紫色
-        { value: stockDetail.value.ratingSaleNum || 0, name: '卖出指数', itemStyle: { color: '#1f77b4' } } // 蓝色
+        { value: stockDetail.value.ratingBuyNum, name: '买入', itemStyle: { color: '#d62728' } }, // 红色
+        { value: stockDetail.value.ratingAddNum, name: '增持', itemStyle: { color: '#ff7f0e' } }, // 橙色
+        { value: stockDetail.value.ratingNeutralNum || 0, name: '观望', itemStyle: { color: '#2ca02c' } }, // 绿色
+        { value: stockDetail.value.ratingReduceNum || 0, name: '减持', itemStyle: { color: '#9467bd' } }, // 紫色
+        { value: stockDetail.value.ratingSaleNum || 0, name: '卖出', itemStyle: { color: '#1f77b4' } } // 蓝色
       ].filter(item => item.value > 0), // 过滤掉值为0的数据
       label: {
         fontSize: 10, // 缩小字体
@@ -290,11 +316,11 @@ function updatePieChart() {
         type: 'pie',
         radius: '40%',
         data: [
-          { value: stockDetailData.value.ratingBuyNum, name: '买进指数', itemStyle: { color: '#d62728' } },
-          { value: stockDetailData.value.ratingAddNum, name: '增持指数', itemStyle: { color: '#ff7f0e' } },
-          { value: stockDetailData.value.ratingNeutralNum, name: '观望指数', itemStyle: { color: '#2ca02c' } },
-          { value: stockDetailData.value.ratingReduceNum, name: '减持指数', itemStyle: { color: '#9467bd' } },
-          { value: stockDetailData.value.ratingSaleNum, name: '卖出指数', itemStyle: { color: '#1f77b4' } }
+          { value: stockDetailData.value.ratingBuyNum, name: '买入', itemStyle: { color: '#d62728' } },
+          { value: stockDetailData.value.ratingAddNum, name: '增持', itemStyle: { color: '#ff7f0e' } },
+          { value: stockDetailData.value.ratingNeutralNum, name: '观望', itemStyle: { color: '#2ca02c' } },
+          { value: stockDetailData.value.ratingReduceNum, name: '减持', itemStyle: { color: '#9467bd' } },
+          { value: stockDetailData.value.ratingSaleNum, name: '卖出', itemStyle: { color: '#1f77b4' } }
         ].filter(item => item.value > 0),
         label: {
           fontSize: 10,
@@ -611,7 +637,7 @@ const onAdd = async code => {
       alert('已在自选股中');
     }
   } catch (error) {
-    // alert('已在自��中');
+    // alert('已在自选股中');
   }
 };
 
@@ -959,9 +985,9 @@ onUnmounted(() => {
       <ACard :bordered="false" class="mt-2 w-35% card-wrapper">
         <div class="flex justify-between">
           <div>
-            <div class="mb--1 text-5 font-bold">{{ stockDetailData.stockName }}</div>
-            <div class="text-4">{{ stockDetailData.stockCode }}</div>
-            <div class="flex-x-center text-4">{{ stockInfoData.summary }}</div>
+            <div class="mb--1 text-5 font-bold">{{ stockDetailData?.stockName || '-' }}</div>
+            <div class="text-4">{{ stockDetailData?.stockCode || '-' }}</div>
+            <div class="flex-x-center text-4">{{ stockInfoData?.summary || '-' }}</div>
           </div>
           <div>
             <div>
@@ -1001,7 +1027,7 @@ onUnmounted(() => {
           </ATooltip>
         </div>
         <div class="mb-2 mt-5 w-full flex-x-center text-5 font-bold">
-          投资评级
+          证券机构研报评级分布
           <icon-tdesign:compass class="ml-1 mt-2" />
         </div>
         <div ref="chartRef" class="chart-container mb--17 mt--14 flex-x-center"></div>
