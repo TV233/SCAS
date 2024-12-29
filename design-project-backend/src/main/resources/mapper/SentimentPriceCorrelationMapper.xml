@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.kclgroup.backend.mapper.SentimentPriceCorrelationMapper">
+
+    <resultMap id="BaseResultMap" type="com.kclgroup.backend.pojo.entity.SentimentPriceCorrelation">
+        <id column="stock_code" property="stockCode"/>
+        <id column="date" property="date"/>
+        <result column="sentiment_avg" property="sentimentAvg"/>
+        <result column="price_change" property="priceChange"/>
+        <result column="next_day_price_change" property="nextDayPriceChange"/>
+        <result column="correlation" property="correlation"/>
+        <result column="sentiment_count" property="sentimentCount"/>
+        <result column="is_significant" property="isSignificant"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+</mapper> 

@@ -1,12 +1,9 @@
 package com.kclgroup.backend.controller;
 
 import com.kclgroup.backend.pojo.entity.*;
-import com.kclgroup.backend.pojo.vo.FinancialDataVo;
-import com.kclgroup.backend.pojo.vo.KlineVo;
-import com.kclgroup.backend.pojo.vo.SentimentTrendVo;
-import com.kclgroup.backend.pojo.vo.StockInfoVo;
-import com.kclgroup.backend.pojo.vo.WordFrequencyVo;
+import com.kclgroup.backend.pojo.vo.*;
 import com.kclgroup.backend.service.*;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/stock")
@@ -34,6 +32,8 @@ public class StockController {
     SentimentTrendService sentimentTrendService;
     @Autowired
     WordFrequencyService wordFrequencyService;
+    @Autowired
+    private SentimentPriceCorrelationService sentimentPriceCorrelationService;
 
     //根据股票代码获取股票信息
     @GetMapping()
@@ -101,6 +101,23 @@ public class StockController {
             return Result.success(wordFreqData);
         } catch (Exception e) {
             return Result.error("获取词频数据失败：" + e.getMessage());
+        }
+    }
+
+    @GetMapping("/sentiment-correlation")
+    public Result<List<SentimentPriceCorrelationVo>> getSentimentPriceCorrelation(@RequestParam String stockCode) {
+        try {
+            List<SentimentPriceCorrelation> correlations = sentimentPriceCorrelationService.getByStockCode(stockCode);
+            List<SentimentPriceCorrelationVo> vos = correlations.stream()
+                .map(correlation -> {
+                    SentimentPriceCorrelationVo vo = new SentimentPriceCorrelationVo();
+                    BeanUtils.copyProperties(correlation, vo);
+                    return vo;
+                })
+                .collect(Collectors.toList());
+            return Result.success(vos);
+        } catch (Exception e) {
+            return Result.error("获取情感-股价相关性数据失败：" + e.getMessage());
         }
     }
 }

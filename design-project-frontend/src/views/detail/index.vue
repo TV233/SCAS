@@ -895,6 +895,10 @@ const sentimentChartRef = ref<HTMLDivElement | null>(null);
 const wordCloudChartRef = ref<HTMLDivElement | null>(null);
 let sentimentChartInstance: echarts.ECharts | null = null;
 let wordCloudChartInstance: echarts.ECharts | null = null;
+// 添加新的响应式数据
+const correlationData = ref([]);
+const correlationChartRef = ref<HTMLDivElement | null>(null);
+let correlationChartInstance: echarts.ECharts | null = null;
 
 // 更新词云图表
 function updateWordCloudChart() {
@@ -965,6 +969,11 @@ onMounted(() => {
     wordCloudChartInstance = echarts.init(wordCloudChartRef.value);
     fetchWordFrequencyData(stockCode);
   }
+
+  if (correlationChartRef.value) {
+    correlationChartInstance = echarts.init(correlationChartRef.value);
+    fetchSentimentCorrelation(stockCode);
+  }
 });
 
 // 修改onUnmounted钩子
@@ -972,9 +981,93 @@ onUnmounted(() => {
   // ... 原有的销毁代码 ...
   sentimentChartInstance?.dispose();
   wordCloudChartInstance?.dispose();
+  correlationChartInstance?.dispose();
+});
+
+
+// 添加新的请求函数
+async function fetchSentimentCorrelation(stockCode) {
+  try {
+    const result = await request({
+      url: '/stock/sentiment-correlation',
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      },
+      params: {
+        stockCode
+      },
+      method: 'GET'
+    });
+    if (result) {
+      correlationData.value = result.data;
+      updateCorrelationChart();
+    }
+  } catch (error) {
+    console.error('Error fetching correlation data:', error);
+  }
+}
+
+// 添加图表更新函数
+function updateCorrelationChart() {
+  if (!correlationData.value?.length) return;
+
+  const option = {
+    backgroundColor: 'transparent',
+    title: {
+      text: '情感-股价相关性分析',
+      left: 'center'
+    },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'cross'
+      }
+    },
+    legend: {
+      data: ['情感值', '次日股价变动'],
+      top: '30px'
+    },
+    xAxis: {
+      type: 'category',
+      data: correlationData.value.map(item => item.date)
+    },
+    yAxis: [
+      {
+        type: 'value',
+        name: '情感值',
+        position: 'left'
+      },
+      {
+        type: 'value',
+        name: '股价变动(%)',
+        position: 'right'
+      }
+    ],
+    series: [
+      {
+        name: '情感值',
+        type: 'line',
+        data: correlationData.value.map(item => item.sentimentAvg),
+        yAxisIndex: 0
+      },
+      {
+        name: '次日股价变动',
+        type: 'line',
+        data: correlationData.value.map(item => item.nextDayPriceChange),
+        yAxisIndex: 1
+      }
+    ]
+  };
+
+  correlationChartInstance?.setOption(option);
+}
+
+window.addEventListener('resize', () => {
+  correlationChartInstance?.resize();
 });
 </script>
 
+// 在template中添加图表容器
 <template>
   <div>
     <ATooltip placement="right">
@@ -1027,7 +1120,7 @@ onUnmounted(() => {
           </ATooltip>
         </div>
         <div class="mb-2 mt-5 w-full flex-x-center text-5 font-bold">
-          证券机构研报评级分布
+          近期证券机构研报评级分布
           <icon-tdesign:compass class="ml-1 mt-2" />
         </div>
         <div ref="chartRef" class="chart-container mb--17 mt--14 flex-x-center"></div>
@@ -1038,6 +1131,9 @@ onUnmounted(() => {
     </ARow>
     <ACard :bordered="false" class="mt-4 w-full card-wrapper">
       <div ref="klineChartRef" class="kline-chart-container"></div>
+    </ACard>
+    <ACard :bordered="false" class="mt-4 w-full card-wrapper">
+      <div ref="correlationChartRef" class="correlation-chart-container"></div>
     </ACard>
     <ACard :bordered="false" class="mt-4 w-full card-wrapper">
       <div ref="lineChartRef" class="line-chart-container mb--14 mt--5 flex-x-center"></div>
@@ -1067,6 +1163,10 @@ onUnmounted(() => {
 }
 .sentiment-chart-container,
 .wordcloud-chart-container {
+  width: 100%;
+  height: 400px;
+}
+.correlation-chart-container {
   width: 100%;
   height: 400px;
 }

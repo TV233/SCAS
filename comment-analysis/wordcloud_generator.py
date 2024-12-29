@@ -12,6 +12,18 @@ def clean_text(text):
     text = re.sub(r'[^\w\s]', '', text)  # 只保留字母、数字和空格
     return text
 
+def load_stop_words():
+    """加载停用词列表"""
+    stop_words_path = os.path.join(os.path.dirname(__file__), 'stopUsingWords.txt')
+    try:
+        # 确保以 utf-8 编码读取文件
+        with open(stop_words_path, 'r', encoding='utf-8') as f:
+            # 过滤掉空行和只包含空白字符的行
+            return {line.strip() for line in f if line.strip()}
+    except FileNotFoundError:
+        print("警告：找不到停用词文件")
+        return set()
+
 def generate_word_frequency(stock_code):
     """生成指定股票的词频统计"""
     # 确保data目录存在
@@ -27,12 +39,17 @@ def generate_word_frequency(stock_code):
         
     df = pd.read_csv(file_path)
     
+    # 加载停用词
+    stop_words = load_stop_words()
+    
     # 清洗和分词
     text_list = []
     for text in df['title']:
         cleaned_text = clean_text(str(text))
         words = jieba.cut(cleaned_text)
-        text_list.extend([word for word in words if len(word) > 1])
+        # 过滤停用词和长度为1的词
+        filtered_words = [word for word in words if len(word) > 1 and word not in stop_words]
+        text_list.extend(filtered_words)
     
     # 统计词频
     word_freq = Counter(text_list)
