@@ -5,6 +5,7 @@ from datetime import datetime
 import os
 import matplotlib.pyplot as plt
 from scipy import stats
+from scipy.stats import pearsonr
 import logging
 
 # 设置日志
@@ -45,12 +46,12 @@ def create_analysis_table():
     Table('sentiment_price_correlation', metadata,
         Column('stock_code', String(20), primary_key=True),
         Column('date', Date, primary_key=True),
-        Column('sentiment_avg', Float),  # 当日平均情感值
-        Column('price_change', Float),   # 当日股价变动百分比
-        Column('next_day_price_change', Float),  # 次日股价变动百分比
-        Column('correlation', Float),     # 情感与股价变动相关系数
+        Column('sentiment_change', Float),  # 情感值变化
+        Column('price_change', Float),      # 股价变动百分比
+        Column('correlation', Float),        # 相关系数
         Column('sentiment_count', Integer),  # 情感评论数量
         Column('is_significant', Integer),   # 相关性是否显著(p值<0.05)
+        Column('correlation_summary', String(255)),  # 相关性分析总结
         Column('update_time', DateTime)
     )
     
@@ -91,16 +92,7 @@ def get_kline_data(stock_code, engine):
         query = text("""
             SELECT 
                 date_time as date,
-                open_price,
-                close_price,
-                high_price,
-                low_price,
-                volume,
-                trade_value,
-                amplitude,
-                up_down_range,
-                up_down_price,
-                turnover_rate
+                close_price
             FROM stock_kline 
             WHERE stock_code = :code
             ORDER BY date_time
@@ -108,6 +100,10 @@ def get_kline_data(stock_code, engine):
         
         df = pd.read_sql(query, engine, params={'code': stock_code})
         df['date'] = pd.to_datetime(df['date']).dt.date
+        
+        # 计算价格变化百分比
+        df['price_change'] = df['close_price'].pct_change() * 100
+        
         return df
         
     except Exception as e:
@@ -168,73 +164,43 @@ def analyze_sentiment_price_relation(stock_code, logger):
         }).reset_index()
         daily_sentiment.columns = ['date', 'sentiment_avg', 'sentiment_count']
         
-        logger.info(f"每日情感统计:")
-        logger.info(f"- 天数: {len(daily_sentiment)}")
-        logger.info(f"- 平均情感值范围: {daily_sentiment['sentiment_avg'].min():.3f} - {daily_sentiment['sentiment_avg'].max():.3f}")
+        # 对情感值进行排序，确保按日期顺序计算变化
+        daily_sentiment = daily_sentiment.sort_values('date')
         
-        # 计算股价变动百分比
-        kline_df['price_change'] = kline_df['close_price'].pct_change() * 100
-        kline_df['next_day_price_change'] = kline_df['price_change'].shift(-1)
+        # 计算情感值的变化（今天的情感值 - 昨天的情感值）
+        daily_sentiment['sentiment_change'] = daily_sentiment['sentiment_avg'].diff()
         
-        # 合并数据后，清理缺失值和异常值
-        merged_df = pd.merge(daily_sentiment, kline_df[['date', 'price_change', 'next_day_price_change']], 
-                            on='date', how='inner')
+        # 输出一些调试信息
+        logger.info("情感数据示例:")
+        logger.info(daily_sentiment[['date', 'sentiment_avg', 'sentiment_change', 'sentiment_count']].head())
         
-        # 删除任何包含NaN的行
-        merged_df = merged_df.dropna(subset=['sentiment_avg', 'next_day_price_change'])
+        # 合并数据，使用当天的股价变化
+        merged_df = pd.merge(daily_sentiment, 
+                           kline_df[['date', 'price_change']], 
+                           on='date', how='inner')
         
-        # 移除异常值（使用3个标准差作为阈值）
-        def remove_outliers(df, column):
-            mean = df[column].mean()
-            std = df[column].std()
-            return df[abs(df[column] - mean) <= 3 * std]
+        # 删除缺失值和异常值
+        merged_df = merged_df.dropna(subset=['sentiment_change', 'price_change'])
         
-        merged_df = remove_outliers(merged_df, 'next_day_price_change')
-        merged_df = remove_outliers(merged_df, 'sentiment_avg')
+        # 输出合并后的数据示例
+        logger.info("\n合并后的数据示例:")
+        logger.info(merged_df[['date', 'sentiment_change', 'price_change', 'sentiment_count']].head())
         
-        logger.info(f"清理后的数据:")
-        logger.info(f"- 有效记录数: {len(merged_df)}")
+        # 计算相关系数和显著性
+        correlation, p_value = pearsonr(merged_df['sentiment_change'], 
+                                      merged_df['price_change'])
         
-        if len(merged_df) < 2:  # 确保至少有两个数据点
-            logger.warning("数据点太少，无法进行相关性分析")
-            return
-            
-        # 计算相关系数
-        correlation = merged_df['sentiment_avg'].corr(merged_df['next_day_price_change'])
-        
-        # 计算显著性
-        # 使用pearsonr替代linregress，因为它更适合相关性分析
-        from scipy.stats import pearsonr
-        correlation, p_value = pearsonr(merged_df['sentiment_avg'], 
-                                      merged_df['next_day_price_change'])
-        
-        logger.info(f"相关性分析结果:")
+        logger.info(f"\n相关性分析结果:")
         logger.info(f"- 相关系数: {correlation:.3f}")
         logger.info(f"- P值: {p_value:.3f}")
-        logger.info(f"- 是否显著: {p_value < 0.05}")
         
-        # 添加更详细的分析
-        if p_value < 0.05:
-            if correlation > 0:
-                logger.info("结论: 情感与股价显著正相关")
-            else:
-                logger.info("结论: 情感与股价显著负相关")
-        else:
-            logger.info("结论: 情感与股价无显著相关性")
-            
-        # 添加滞后相关性分析
-        for lag in [1, 2, 3, 5]:  # 分析不同的滞后天数
-            lagged_df = merged_df.copy()
-            lagged_df['next_day_price_change'] = lagged_df['next_day_price_change'].shift(-lag)
-            lagged_df = lagged_df.dropna()
-            
-            if len(lagged_df) >= 2:
-                lag_corr, lag_p = pearsonr(lagged_df['sentiment_avg'], 
-                                         lagged_df['next_day_price_change'])
-                logger.info(f"{lag}天滞后相关性: {lag_corr:.3f} (P值: {lag_p:.3f})")
+        # 生成相关性分析总结
+        correlation_summary = generate_correlation_summary(correlation, p_value)
+        logger.info(f"- 分析总结: {correlation_summary}")
         
         # 保存分析结果
-        save_analysis_results(stock_code, merged_df, correlation, p_value < 0.05, logger)
+        save_analysis_results(stock_code, merged_df, correlation, 
+                            p_value < 0.05, correlation_summary, logger)
         
         # 可视化
         plot_correlation(merged_df, stock_code, correlation, logger)
@@ -244,7 +210,24 @@ def analyze_sentiment_price_relation(stock_code, logger):
     finally:
         engine.dispose()
 
-def save_analysis_results(stock_code, analysis_df, correlation, is_significant, logger):
+def generate_correlation_summary(correlation, p_value):
+    """生成相关性分析总结"""
+    if p_value >= 0.05:
+        return "情感变化与股价变动无显著相关性"
+    
+    strength = ""
+    if abs(correlation) > 0.7:
+        strength = "强"
+    elif abs(correlation) > 0.4:
+        strength = "中等"
+    else:
+        strength = "弱"
+        
+    direction = "正" if correlation > 0 else "负"
+    
+    return f"情感变化与股价变动呈{strength}度{direction}相关(相关系数:{correlation:.2f})"
+
+def save_analysis_results(stock_code, analysis_df, correlation, is_significant, correlation_summary, logger):
     """保存分析结果到数据库"""
     db_config = {
         'user': 'root',
@@ -264,20 +247,19 @@ def save_analysis_results(stock_code, analysis_df, correlation, is_significant, 
             ), {'code': stock_code})
             logger.info(f"已删除股票{stock_code}的旧数据")
         
-        # 插入新数据
-        current_time = datetime.now()
         records = []
+        current_time = datetime.now()
         
         for _, row in analysis_df.iterrows():
             record = {
                 'stock_code': stock_code,
                 'date': row['date'],
-                'sentiment_avg': float(row['sentiment_avg']),
+                'sentiment_change': float(row['sentiment_change']) if not pd.isna(row['sentiment_change']) else 0,
                 'price_change': float(row['price_change']) if not pd.isna(row['price_change']) else 0,
-                'next_day_price_change': float(row['next_day_price_change']) if not pd.isna(row['next_day_price_change']) else 0,
                 'correlation': float(correlation),
                 'sentiment_count': int(row['sentiment_count']),
                 'is_significant': 1 if is_significant else 0,
+                'correlation_summary': correlation_summary,
                 'update_time': current_time
             }
             records.append(record)
@@ -286,11 +268,11 @@ def save_analysis_results(stock_code, analysis_df, correlation, is_significant, 
             with engine.begin() as conn:
                 conn.execute(text("""
                     INSERT INTO sentiment_price_correlation 
-                    (stock_code, date, sentiment_avg, price_change, next_day_price_change, 
-                     correlation, sentiment_count, is_significant, update_time)
+                    (stock_code, date, sentiment_change, price_change, 
+                     correlation, sentiment_count, is_significant, correlation_summary, update_time)
                     VALUES 
-                    (:stock_code, :date, :sentiment_avg, :price_change, :next_day_price_change,
-                     :correlation, :sentiment_count, :is_significant, :update_time)
+                    (:stock_code, :date, :sentiment_change, :price_change,
+                     :correlation, :sentiment_count, :is_significant, :correlation_summary, :update_time)
                 """), records)
                 logger.info(f"成功插入{len(records)}条记录")
                 
@@ -303,15 +285,15 @@ def plot_correlation(df, stock_code, correlation, logger):
     """绘制情感-股价关系图"""
     try:
         plt.figure(figsize=(10, 6))
-        plt.scatter(df['sentiment_avg'], df['next_day_price_change'], alpha=0.5)
-        plt.xlabel('情感得分')
-        plt.ylabel('次日股价变动(%)')
-        plt.title(f'股票{stock_code}情感-股价关系图 (相关系数: {correlation:.3f})')
+        plt.scatter(df['sentiment_change'], df['price_change'], alpha=0.5)
+        plt.xlabel('情感变化')
+        plt.ylabel('股价变动(%)')
+        plt.title(f'股票{stock_code}情感变化-股价变动关系图 (相关系数: {correlation:.3f})')
         
         # 添加趋势线
-        z = np.polyfit(df['sentiment_avg'], df['next_day_price_change'], 1)
+        z = np.polyfit(df['sentiment_change'], df['price_change'], 1)
         p = np.poly1d(z)
-        plt.plot(df['sentiment_avg'], p(df['sentiment_avg']), "r--", alpha=0.8)
+        plt.plot(df['sentiment_change'], p(df['sentiment_change']), "r--", alpha=0.8)
         
         # 保存图片
         save_dir = os.path.join(os.path.dirname(__file__), 'analysis_plots')

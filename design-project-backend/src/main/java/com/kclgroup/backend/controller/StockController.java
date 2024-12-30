@@ -105,19 +105,20 @@ public class StockController {
     }
 
     @GetMapping("/sentiment-correlation")
-    public Result<List<SentimentPriceCorrelationVo>> getSentimentPriceCorrelation(@RequestParam String stockCode) {
-        try {
-            List<SentimentPriceCorrelation> correlations = sentimentPriceCorrelationService.getByStockCode(stockCode);
-            List<SentimentPriceCorrelationVo> vos = correlations.stream()
-                .map(correlation -> {
-                    SentimentPriceCorrelationVo vo = new SentimentPriceCorrelationVo();
-                    BeanUtils.copyProperties(correlation, vo);
-                    return vo;
-                })
-                .collect(Collectors.toList());
-            return Result.success(vos);
-        } catch (Exception e) {
-            return Result.error("获取情感-股价相关性数据失败：" + e.getMessage());
-        }
+    public Result<List<SentimentPriceCorrelationVo>> getSentimentCorrelation(@RequestParam String stockCode) {
+        List<SentimentPriceCorrelation> data = sentimentPriceCorrelationService.getByStockCode(stockCode);
+        return Result.success(data.stream()
+            .map(item -> {
+                SentimentPriceCorrelationVo vo = new SentimentPriceCorrelationVo();
+                vo.setStockCode(item.getStockCode());
+                vo.setDate(item.getDate());
+                vo.setSentimentChange(item.getSentimentChange());
+                vo.setPriceChange(item.getPriceChange());
+                vo.setCorrelation(item.getCorrelation());
+                vo.setSentimentCount(item.getSentimentCount());
+                vo.setCorrelationSummary(item.getCorrelationSummary());
+                return vo;
+            })
+            .collect(Collectors.toList()));
     }
 }

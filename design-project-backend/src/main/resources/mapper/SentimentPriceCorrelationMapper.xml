@@ -5,12 +5,12 @@
     <resultMap id="BaseResultMap" type="com.kclgroup.backend.pojo.entity.SentimentPriceCorrelation">
         <id column="stock_code" property="stockCode"/>
         <id column="date" property="date"/>
-        <result column="sentiment_avg" property="sentimentAvg"/>
+        <result column="sentiment_change" property="sentimentChange"/>
         <result column="price_change" property="priceChange"/>
-        <result column="next_day_price_change" property="nextDayPriceChange"/>
         <result column="correlation" property="correlation"/>
         <result column="sentiment_count" property="sentimentCount"/>
         <result column="is_significant" property="isSignificant"/>
+        <result column="correlation_summary" property="correlationSummary"/>
         <result column="update_time" property="updateTime"/>
     </resultMap>
 

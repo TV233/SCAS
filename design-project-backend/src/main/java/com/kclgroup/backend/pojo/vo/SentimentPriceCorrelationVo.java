@@ -8,11 +8,12 @@ import java.time.LocalDateTime;
 public class SentimentPriceCorrelationVo {
     private String stockCode;
     private LocalDate date;
-    private Float sentimentAvg;
+    private Float sentimentChange;
     private Float priceChange;
     private Float nextDayPriceChange;
     private Float correlation;
     private Integer sentimentCount;
     private Integer isSignificant;
     private LocalDateTime updateTime;
+    private String correlationSummary;
 } 

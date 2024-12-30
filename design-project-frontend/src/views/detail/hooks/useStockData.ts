@@ -38,6 +38,14 @@ interface StockInfoData {
   financialDataByYear: Record<string, any>;
 }
 
+interface CorrelationData {
+  date: string;
+  sentimentChange: number;
+  priceChange: number;
+  correlationSummary: string;
+  sentimentCount: number;
+}
+
 export function useStockData() {
   const stockDetailData = ref<StockDetailData>({} as StockDetailData);
   const stockInfoData = ref<StockInfoData>({} as StockInfoData);
@@ -167,7 +175,9 @@ export function useStockData() {
         },
         method: 'GET'
       });
-      if (result) {
+
+      if (result?.data) {
+        console.log('API Response:', result.data);
         correlationData.value = result.data;
       }
     } catch (error) {
