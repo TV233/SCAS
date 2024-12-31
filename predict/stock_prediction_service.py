@@ -7,6 +7,8 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense, Dropout, Conv1D, MaxPooling1D, Flatten
 import matplotlib.pyplot as plt
 from sqlalchemy import create_engine, Table, MetaData, insert, text
+from datetime import datetime, timedelta
+from llm.llm import LLMPredictionService  # 导入LLM服务
 
 class StockPredictionService:
     def __init__(self, data_path):
@@ -25,7 +27,7 @@ class StockPredictionService:
         
         # 设置时间步长和预测天数
         self.time_steps = 20
-        self.future_days = 5
+        self.future_days = 90
         
         # 数据库配置
         self.db_config = {
@@ -39,6 +41,9 @@ class StockPredictionService:
         self.engine = create_engine(
             f"mysql+mysqlconnector://{self.db_config['user']}:{self.db_config['password']}@{self.db_config['host']}/{self.db_config['database']}"
         )
+        
+        # 初始化LLM服务
+        self.llm_service = LLMPredictionService()
 
             
     def prepare_data(self, data, time_steps):
@@ -86,19 +91,24 @@ class StockPredictionService:
         return {'mse': mse, 'mae': mae, 'r2': r2}
     
     def predict_future(self, model, last_sequence):
+        """预测未来90天的股价"""
         future_predictions = []
         current_sequence = last_sequence.copy()
         
         for _ in range(self.future_days):
+            # 预测下一天
             next_pred = model.predict(current_sequence.reshape(1, self.time_steps, 1))
             future_predictions.append(next_pred[0, 0])
             
+            # 更新序列，移除最早的一天，添加新预测的一天
             current_sequence = np.roll(current_sequence, -1)
             current_sequence[-1] = next_pred
             
+        # 反归一化预测结果
         return self.scaler.inverse_transform(np.array(future_predictions).reshape(-1, 1))
     
     def save_predictions_to_db(self, predictions, model_name, stock_code, accuracy=None):
+        """保存预测结果到数据库"""
         metadata = MetaData()
         predictions_table = Table('predictions', metadata, autoload_with=self.engine)
         
@@ -109,6 +119,9 @@ class StockPredictionService:
                 {"code": stock_code, "model": model_name}
             )
             
+            # 计算置信度
+            confidence_level = accuracy if accuracy else 0.5
+            
             # 插入新的预测数据
             for i, price in enumerate(predictions):
                 prediction_date = pd.Timestamp.now() + pd.Timedelta(days=i+1)
@@ -117,12 +130,15 @@ class StockPredictionService:
                     model_name=model_name,
                     prediction_date=prediction_date.date(),
                     predicted_price=float(price[0]),
-                    accuracy=accuracy
+                    accuracy=accuracy,
+                    confidence_level=confidence_level,
+                    created_at=pd.Timestamp.now()
                 )
                 connection.execute(stmt)
     
     def run_predictions(self, stock_code):
-        # 准备数据
+        """运行所有预测模型"""
+        # 运行CNN和LSTM预测
         X, y = self.prepare_data(self.scaled_data, self.time_steps)
         split = int(len(X) * 0.8)
         X_train, X_test = X[:split], X[split:]
@@ -143,25 +159,66 @@ class StockPredictionService:
         # 获取最后的序列用于预测未来
         last_sequence = self.scaled_data[-self.time_steps:]
         
-        # 预测未来5天
+        # 预测未来90天
         cnn_future = self.predict_future(cnn_model, last_sequence)
         lstm_future = self.predict_future(lstm_model, last_sequence)
+        
+        # 运行LLM预测
+        llm_future = None
+        llm_metrics = {'mse': None, 'mae': None, 'r2': None}
+        try:
+            # 准备LLM数据
+            data_tuple, _ = self.llm_service.align_and_prepare_data(
+                stock_code,
+                start_date=(datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d'),
+                end_date=datetime.now().strftime('%Y-%m-%d')
+            )
+            
+            if data_tuple is not None:
+                X_price, X_sentiment, y = data_tuple
+                
+                # 训练LLM模型
+                history = self.llm_service.train_model(X_price, X_sentiment, y)
+                
+                if history is not None:
+                    # 准备预测数据
+                    last_price_sequence = X_price[-1]
+                    last_sentiment_sequence = X_sentiment[-1]
+                    
+                    # 预测未来90天
+                    llm_future = self.llm_service.predict_future(
+                        last_price_sequence,
+                        last_sentiment_sequence
+                    )
+                    
+                    # 计算LLM模型的评估指标
+                    llm_pred = self.llm_service.model.predict(
+                        [X_price[-len(X_test):], X_sentiment[-len(X_test):]]
+                    )
+                    llm_metrics = self.evaluate_model(y[-len(X_test):], llm_pred, "LLM")
+        except Exception as e:
+            print(f"LLM预测出错: {e}")
         
         # 保存预测结果到数据库
         self.save_predictions_to_db(cnn_future, "CNN", stock_code, cnn_metrics['r2'])
         self.save_predictions_to_db(lstm_future, "LSTM", stock_code, lstm_metrics['r2'])
+        if llm_future is not None:
+            self.save_predictions_to_db(llm_future, "LLM", stock_code, llm_metrics['r2'])
         
         return {
             'metrics': {
                 'cnn': cnn_metrics,
-                'lstm': lstm_metrics
+                'lstm': lstm_metrics,
+                'llm': llm_metrics
             },
             'predictions': {
                 'cnn': cnn_future.tolist(),
-                'lstm': lstm_future.tolist()
+                'lstm': lstm_future.tolist(),
+                'llm': llm_future.tolist() if llm_future is not None else None
             }
         }
         
     def __del__(self):
+        """清理资源"""
         if hasattr(self, 'engine'):
             self.engine.dispose() 
