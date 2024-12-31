@@ -99,9 +99,16 @@ const updateChart = () => {
     xAxis: {
       type: 'category',
       data: dates,
+      scale: true,
+      boundaryGap: false,
+      axisLine: { onZero: false },
+      splitLine: { show: false },
+      min: 'dataMin',
+      max: 'dataMax',
       axisLabel: {
-        interval: Math.floor(dates.length / 10),
-        rotate: 45
+        formatter: (value: string) => {
+          return value; // 显示完整日期
+        }
       }
     },
     yAxis: [
