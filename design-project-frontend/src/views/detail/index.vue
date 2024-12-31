@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useRoute, useRouter } from 'vue-router';
-import { onMounted } from 'vue';
+import { onMounted, ref } from 'vue';
 import { request } from '@/service/request';
 import 'echarts-wordcloud';
 import StockBasicInfo from './components/StockBasicInfo.vue';
@@ -11,6 +11,7 @@ import KlineChart from './components/KlineChart.vue';
 import FinancialChart from './components/FinancialChart.vue';
 import WordCloudChart from './components/WordCloudChart.vue';
 import CorrelationChart from './components/CorrelationChart.vue';
+import PredictionChart from './components/PredictionChart.vue';
 const route = useRoute();
 const router = useRouter();
 
@@ -23,12 +24,16 @@ const {
   sentimentData,
   wordFreqData,
   correlationData,
+  predictionData,
+  predictionSummary,
   fetchStockFinancialData,
   fetchStockDetailData,
   fetchKlineData,
   fetchSentimentData,
   fetchWordFrequencyData,
-  fetchSentimentCorrelation
+  fetchSentimentCorrelation,
+  fetchPredictionData,
+  fetchPredictionSummary
 } = useStockData();
 
 const goBack = () => {
@@ -67,7 +72,9 @@ onMounted(async () => {
       fetchKlineData(stockCode),
       fetchSentimentData(stockCode),
       fetchWordFrequencyData(stockCode),
-      fetchSentimentCorrelation(stockCode)
+      fetchSentimentCorrelation(stockCode),
+      fetchPredictionData(stockCode),
+      fetchPredictionSummary(stockCode)
     ]);
   }
 });
@@ -101,6 +108,12 @@ onMounted(async () => {
     </ACard>
     <ACard :bordered="false" class="mt-4 w-full card-wrapper">
       <CorrelationChart :correlation-data="correlationData" />
+    </ACard>
+    <ACard :bordered="false" class="mt-4 w-full card-wrapper">
+      <PredictionChart
+        :prediction-data="predictionData"
+        :summary-data="predictionSummary"
+      />
     </ACard>
     <ACard :bordered="false" class="mt-4 w-full card-wrapper">
       <FinancialChart :stock-info-data="stockInfoData" />

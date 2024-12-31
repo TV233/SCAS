@@ -7,6 +7,7 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -34,6 +35,8 @@ public class StockController {
     WordFrequencyService wordFrequencyService;
     @Autowired
     private SentimentPriceCorrelationService sentimentPriceCorrelationService;
+    @Autowired
+    private PredictionService predictionService;
 
     //根据股票代码获取股票信息
     @GetMapping()
@@ -120,5 +123,26 @@ public class StockController {
                 return vo;
             })
             .collect(Collectors.toList()));
+    }
+
+    @GetMapping("/predictions/{stockCode}")
+    public Result<List<PredictionVo>> getPredictions(@PathVariable String stockCode) {
+        List<Prediction> predictions = predictionService.getPredictionsByStockCode(stockCode);
+        List<PredictionVo> predictionVos = predictions.stream()
+            .map(this::convertToVo)
+            .collect(Collectors.toList());
+        return Result.success(predictionVos);
+    }
+
+    @GetMapping("/predictions/{stockCode}/summary")
+    public Result<PredictionSummaryVo> getPredictionSummary(@PathVariable String stockCode) {
+        PredictionSummaryVo summary = predictionService.getPredictionSummary(stockCode);
+        return Result.success(summary);
+    }
+
+    private PredictionVo convertToVo(Prediction prediction) {
+        PredictionVo vo = new PredictionVo();
+        BeanUtils.copyProperties(prediction, vo);
+        return vo;
     }
 }

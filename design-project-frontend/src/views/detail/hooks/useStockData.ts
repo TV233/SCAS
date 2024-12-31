@@ -46,6 +46,23 @@ interface CorrelationData {
   sentimentCount: number;
 }
 
+interface PredictionData {
+  modelName: string;
+  predictionDate: string;
+  predictedPrice: number;
+  accuracy: number;
+  confidenceLevel: number;
+  predictionBasis: string;
+}
+
+interface PredictionSummary {
+  mostAccurateModel: string;
+  oneWeekChange: number;
+  oneMonthChange: number;
+  threeMonthChange: number;
+  modelAccuracy: number;
+}
+
 export function useStockData() {
   const stockDetailData = ref<StockDetailData>({} as StockDetailData);
   const stockInfoData = ref<StockInfoData>({} as StockInfoData);
@@ -62,6 +79,8 @@ export function useStockData() {
   const sentimentData = ref([]);
   const wordFreqData = ref([]);
   const correlationData = ref([]);
+  const predictionData = ref<PredictionData[]>([]);
+  const predictionSummary = ref<PredictionSummary>({} as PredictionSummary);
 
   async function fetchStockFinancialData(stockCode: string) {
     try {
@@ -185,6 +204,34 @@ export function useStockData() {
     }
   }
 
+  async function fetchPredictionData(stockCode: string) {
+    try {
+      const result = await request({
+        url: `/stock/predictions/${stockCode}`,
+        method: 'GET'
+      });
+      if (result?.data) {
+        predictionData.value = result.data;
+      }
+    } catch (error) {
+      console.error('Error fetching prediction data:', error);
+    }
+  }
+
+  async function fetchPredictionSummary(stockCode: string) {
+    try {
+      const result = await request({
+        url: `/stock/predictions/${stockCode}/summary`,
+        method: 'GET'
+      });
+      if (result?.data) {
+        predictionSummary.value = result.data;
+      }
+    } catch (error) {
+      console.error('Error fetching prediction summary:', error);
+    }
+  }
+
   return {
     stockDetailData,
     stockInfoData,
@@ -197,6 +244,10 @@ export function useStockData() {
     fetchKlineData,
     fetchSentimentData,
     fetchWordFrequencyData,
-    fetchSentimentCorrelation
+    fetchSentimentCorrelation,
+    predictionData,
+    predictionSummary,
+    fetchPredictionData,
+    fetchPredictionSummary
   };
 }
