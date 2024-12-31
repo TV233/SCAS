@@ -59,7 +59,7 @@ const updateChart = () => {
     },
     grid: {
       left: '10%',
-      right: props.sentimentData?.length ? '10%' : '5%',
+      right: props.sentimentData?.length ? '15%' : '5%',
       bottom: '15%'
     },
     xAxis: {
@@ -75,8 +75,17 @@ const updateChart = () => {
     yAxis: [
       {
         scale: true,
+        name: '股价',
+        nameLocation: 'end',
+        nameGap: 15,
+        nameTextStyle: {
+          align: 'center'
+        },
         splitArea: {
           show: true
+        },
+        axisLabel: {
+          formatter: '{value}'
         }
       },
       ...(props.sentimentData?.length ? [
@@ -86,7 +95,7 @@ const updateChart = () => {
           min: 0,
           max: 1,
           position: 'right',
-          offset: 80,
+          offset: 0,
           axisLine: {
             show: true,
             lineStyle: {
@@ -94,14 +103,15 @@ const updateChart = () => {
             }
           },
           axisLabel: {
-            formatter: '{value}'
+            formatter: '{value}',
+            padding: [0, 0, 0, 0]
           }
         },
         {
           scale: true,
           name: '评论数',
           position: 'right',
-          offset: 160,
+          offset: 60,
           axisLine: {
             show: true,
             lineStyle: {
@@ -109,7 +119,8 @@ const updateChart = () => {
             }
           },
           axisLabel: {
-            formatter: '{value}'
+            formatter: '{value}',
+            padding: [0, 0, 0, 0]
           }
         }
       ] : [])
