@@ -106,10 +106,18 @@ onMounted(async () => {
         :sentiment-data="sentimentData"
       />
     </ACard>
-    <ACard :bordered="false" class="mt-4 w-full card-wrapper">
+    <ACard
+      v-if="correlationData?.length"
+      :bordered="false"
+      class="mt-4 w-full card-wrapper"
+    >
       <CorrelationChart :correlation-data="correlationData" />
     </ACard>
-    <ACard :bordered="false" class="mt-4 w-full card-wrapper">
+    <ACard
+      v-if="predictionData?.length && predictionSummary"
+      :bordered="false"
+      class="mt-4 w-full card-wrapper"
+    >
       <PredictionChart
         :prediction-data="predictionData"
         :summary-data="predictionSummary"
@@ -118,7 +126,11 @@ onMounted(async () => {
     <ACard :bordered="false" class="mt-4 w-full card-wrapper">
       <FinancialChart :stock-info-data="stockInfoData" />
     </ACard>
-    <ACard :bordered="false" class="mt-4 w-full card-wrapper">
+    <ACard
+      v-if="wordFreqData?.length"
+      :bordered="false"
+      class="mt-4 w-full card-wrapper"
+    >
       <WordCloudChart :word-freq-data="wordFreqData" />
     </ACard>
   </div>
