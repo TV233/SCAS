@@ -34,8 +34,26 @@ export const sendChatMessage = async (messages: Array<{role: string; content: st
         if (json.message?.content) {
           onMessage(json.message.content);
         }
-      } catch (e) {
-        console.error('Error parsing JSON:', e);
+      } catch (error) {
+        // 尝试处理不完整的JSON
+        const lastNewline = buffer.lastIndexOf('\n');
+        if (lastNewline !== -1) {
+          const completeJson = buffer.substring(0, lastNewline);
+          buffer = buffer.substring(lastNewline + 1);
+
+          completeJson.split('\n').forEach(line => {
+            if (line.trim()) {
+              try {
+                const json = JSON.parse(line);
+                if (json.message?.content) {
+                  onMessage(json.message.content);
+                }
+              } catch (parseError) {
+                console.error('Error parsing JSON line:', parseError);
+              }
+            }
+          });
+        }
       }
     };
 
@@ -46,23 +64,16 @@ export const sendChatMessage = async (messages: Array<{role: string; content: st
       const chunk = decoder.decode(value, { stream: true });
       buffer += chunk;
 
-      // 查找完整的JSON对象
-      let startIndex = 0;
-      let endIndex = buffer.indexOf('}\n', startIndex);
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || ''; // 保留最后一个可能不完整的行
 
-      while (endIndex !== -1) {
-        const jsonStr = buffer.substring(startIndex, endIndex + 1);
-        processJSON(jsonStr);
-
-        startIndex = endIndex + 2; // 跳过 '}\n'
-        endIndex = buffer.indexOf('}\n', startIndex);
+      for (const line of lines) {
+        if (line.trim()) {
+          processJSON(line);
+        }
       }
-
-      // 保留未处理的部分
-      buffer = buffer.substring(startIndex);
     }
 
-    // 处理最后可能剩余的数据
     if (buffer.trim()) {
       processJSON(buffer);
     }

@@ -2,7 +2,7 @@ import process from 'node:process';
 import { URL, fileURLToPath } from 'node:url';
 import { defineConfig, loadEnv } from 'vite';
 import { setupVitePlugins } from './build/plugins';
-import { createViteProxy, getBuildTime } from './build/config';
+import { getBuildTime } from './build/config';
 
 export default defineConfig(configEnv => {
   const viteEnv = loadEnv(configEnv.mode, process.cwd()) as unknown as Env.ImportMeta;
@@ -10,7 +10,7 @@ export default defineConfig(configEnv => {
   const buildTime = getBuildTime();
 
   return {
-    base: viteEnv.VITE_BASE_URL,
+    base: './',
     resolve: {
       alias: {
         '~': fileURLToPath(new URL('./', import.meta.url)),
@@ -37,12 +37,16 @@ export default defineConfig(configEnv => {
         cachedChecks: false
       },
       proxy: {
-        ...createViteProxy(viteEnv, configEnv.command === 'serve'),
-        '^/api/chat': {
+        '/api/chat': {
           target: 'http://127.0.0.1:11434',
           changeOrigin: true,
+          secure: false
+        },
+        '/api': {
+          target: 'http://210.41.102.228:8080',
+          changeOrigin: true,
           secure: false,
-          rewrite: (path) => path
+          rewrite: (path) => path.replace(/^\/api/, '')
         }
       }
     },
