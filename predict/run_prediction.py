@@ -91,8 +91,24 @@ def main():
     
     # 比较模型性能
     metrics = results['metrics']
-    best_model = min(metrics.items(), key=lambda x: x[1]['mse'])[0]
-    logger.info(f"\n最佳模型: {best_model}")
+    valid_metrics = {
+        name: metric for name, metric in metrics.items() 
+        if metric is not None and metric.get('mse') is not None
+    }
+    
+    if valid_metrics:
+        best_model = min(valid_metrics.items(), key=lambda x: x[1]['mse'])[0]
+        logger.info(f"\n最佳模型: {best_model}")
+        
+        # 打印所有有效模型的性能比较
+        logger.info("\n模型性能比较:")
+        for name, metric in valid_metrics.items():
+            logger.info(f"{name}:")
+            logger.info(f"  MSE: {metric['mse']:.4f}")
+            logger.info(f"  MAE: {metric['mae']:.4f}")
+            logger.info(f"  R2: {metric['r2']:.4f}")
+    else:
+        logger.warning("没有有效的模型评估结果")
 
 if __name__ == "__main__":
     main() 

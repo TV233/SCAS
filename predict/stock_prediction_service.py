@@ -107,6 +107,52 @@ class StockPredictionService:
         # 反归一化预测结果
         return self.scaler.inverse_transform(np.array(future_predictions).reshape(-1, 1))
     
+    def calculate_llm_confidence(self, predictions, recent_actual, sentiment_data=None):
+        """计算LLM预测的置信度"""
+        try:
+            # 1. 计算预测准确度指标
+            overlap_len = min(len(recent_actual), len(predictions))
+            if overlap_len > 0:
+                # 计算MSE和MAE
+                mse = mean_squared_error(
+                    recent_actual[:overlap_len],
+                    predictions[:overlap_len]
+                )
+                mae = mean_absolute_error(
+                    recent_actual[:overlap_len],
+                    predictions[:overlap_len]
+                )
+                
+                # 计算趋势准确度
+                actual_trend = np.diff(recent_actual[:overlap_len].flatten())
+                pred_trend = np.diff(predictions[:overlap_len].flatten())
+                trend_accuracy = np.mean((np.sign(actual_trend) == np.sign(pred_trend)).astype(float))
+                
+                # 计算预测波动的合理性
+                actual_volatility = np.std(recent_actual[:overlap_len])
+                pred_volatility = np.std(predictions[:overlap_len])
+                volatility_ratio = min(actual_volatility, pred_volatility) / max(actual_volatility, pred_volatility)
+                
+                # 综合多个指标计算置信度
+                mse_confidence = 1 / (1 + mse)  # 0-1范围
+                mae_confidence = 1 / (1 + mae)  # 0-1范围
+                
+                # 加权平均计算最终置信度
+                confidence = (
+                    0.3 * mse_confidence +  # MSE权重
+                    0.3 * mae_confidence +  # MAE权重
+                    0.2 * trend_accuracy +  # 趋势准确度权重
+                    0.2 * volatility_ratio  # 波动合理性权重
+                )
+                
+                return max(0.1, min(0.99, confidence))  # 确保置信度在0.1-0.99之间
+            
+            return 0.5  # 默认置信度
+            
+        except Exception as e:
+            print(f"计算LLM置信度时出错: {e}")
+            return 0.5
+
     def save_predictions_to_db(self, predictions, model_name, stock_code, accuracy=None):
         """保存预测结果到数据库"""
         metadata = MetaData()
@@ -120,8 +166,17 @@ class StockPredictionService:
             )
             
             # 计算置信度
-            confidence_level = accuracy if accuracy else 0.5
-            
+            if accuracy is not None:
+                if model_name == "LLM":
+                    # 使用改进的LLM置信度计算方法
+                    recent_actual = self.close_prices[-90:]
+                    confidence_level = self.calculate_llm_confidence(predictions, recent_actual)
+                else:
+                    # 其他模型使用R2分数,但需要处理负值
+                    confidence_level = max(0.1, min(0.99, (accuracy + 1) / 2))  # 将R2转换到0.1-0.99范围
+            else:
+                confidence_level = 0.5  # 默认置信度
+                
             # 插入新的预测数据
             for i, price in enumerate(predictions):
                 prediction_date = pd.Timestamp.now() + pd.Timedelta(days=i+1)
@@ -167,35 +222,43 @@ class StockPredictionService:
         llm_future = None
         llm_metrics = {'mse': None, 'mae': None, 'r2': None}
         try:
-            # 准备LLM数据
-            data_tuple, _ = self.llm_service.align_and_prepare_data(
+            # 获取K线数据
+            kline_data = self.llm_service.get_kline_data(
                 stock_code,
                 start_date=(datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d'),
                 end_date=datetime.now().strftime('%Y-%m-%d')
             )
             
-            if data_tuple is not None:
-                X_price, X_sentiment, y = data_tuple
+            # 获取情感数据
+            sentiment_data = self.llm_service.get_sentiment_data(stock_code)
+            
+            if kline_data is not None and sentiment_data is not None:
+                # 使用异步运行LLM预测
+                import asyncio
+                llm_result = asyncio.run(
+                    self.llm_service.predict_future(stock_code, kline_data, sentiment_data)
+                )
                 
-                # 训练LLM模型
-                history = self.llm_service.train_model(X_price, X_sentiment, y)
-                
-                if history is not None:
-                    # 准备预测数据
-                    last_price_sequence = X_price[-1]
-                    last_sentiment_sequence = X_sentiment[-1]
+                if llm_result is not None:
+                    predictions, dates, analysis, factors = llm_result
+                    llm_future = predictions.reshape(-1, 1)
                     
-                    # 预测未来90天
-                    llm_future = self.llm_service.predict_future(
-                        last_price_sequence,
-                        last_sentiment_sequence
-                    )
+                    # 计算评估指标
+                    # 使用最近90天的实际数据作为评估基准
+                    recent_actual = self.close_prices[-90:]
+                    if len(recent_actual) > 0:
+                        # 只评估与实际数据重叠的部分
+                        overlap_len = min(len(recent_actual), len(predictions))
+                        llm_metrics = self.evaluate_model(
+                            recent_actual[:overlap_len],
+                            predictions[:overlap_len].reshape(-1, 1),
+                            "LLM"
+                        )
+                        
+                    print("\nLLM分析结果:")
+                    print(f"分析: {analysis}")
+                    print(f"影响因素: {factors}")
                     
-                    # 计算LLM模型的评估指标
-                    llm_pred = self.llm_service.model.predict(
-                        [X_price[-len(X_test):], X_sentiment[-len(X_test):]]
-                    )
-                    llm_metrics = self.evaluate_model(y[-len(X_test):], llm_pred, "LLM")
         except Exception as e:
             print(f"LLM预测出错: {e}")
         

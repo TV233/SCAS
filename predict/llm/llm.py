@@ -5,11 +5,9 @@ from sklearn.preprocessing import MinMaxScaler
 import logging
 from datetime import datetime, timedelta
 import os
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import LSTM, Dense, Dropout, Input, Concatenate, Flatten
-from tensorflow.keras.optimizers import Adam
-from sklearn.model_selection import train_test_split
-import matplotlib.pyplot as plt
+import json
+import aiohttp
+import asyncio
 import calendar
 
 class LLMPredictionService:
@@ -17,11 +15,11 @@ class LLMPredictionService:
         """初始化服务"""
         self.setup_logger()
         self.setup_database()
-        self.time_steps = 20  # 使用20天的数据作为一个预测窗口
+        self.time_steps = 20  # 使用20天的数据作为预测窗口
         self.future_days = 90  # 预测未来90天
         self.scaler_price = MinMaxScaler(feature_range=(0, 1))
         self.scaler_sentiment = MinMaxScaler(feature_range=(0, 1))
-        self.model = None
+        self.ollama_url = "http://localhost:11434/api/chat"
         
     def setup_logger(self):
         """配置日志"""
@@ -54,7 +52,7 @@ class LLMPredictionService:
         self.engine = create_engine(
             f"mysql+mysqlconnector://{db_config['user']}:{db_config['password']}@{db_config['host']}/{db_config['database']}"
         )
-        
+
     def get_kline_data(self, stock_code, start_date=None, end_date=None):
         """从数据库获取K线数据"""
         try:
@@ -99,7 +97,7 @@ class LLMPredictionService:
         """读取情感分析数据"""
         try:
             # 读取CSV文件
-            sentiment_file = f'emotionRating_{stock_code}.csv'
+            sentiment_file = os.path.join(os.path.dirname(__file__), f'emotionRating_{stock_code}.csv')
             df = pd.read_csv(sentiment_file)
             
             # 转换时间格式
@@ -152,234 +150,199 @@ class LLMPredictionService:
         except Exception as e:
             self.logger.error(f"读取情感数据时出错: {e}", exc_info=True)
             return None
+
+    def prepare_prompt(self, kline_data, sentiment_data, stock_code):
+        """准备提示词"""
+        # 获取最近的K线数据
+        recent_kline = kline_data.tail(self.time_steps)
+        recent_sentiment = sentiment_data.tail(self.time_steps)
+        
+        # 构建提示词
+        prompt = f"""你是一个专业的股票分析师和预测专家。请基于以下数据分析并预测股票 {stock_code} 未来90天(从{pd.Timestamp.now().strftime('%Y-%m-%d')}开始)的每日走势。
+
+最近{self.time_steps}天的K线数据:
+"""
+        
+        # 添加K线数据
+        for date, row in recent_kline.iterrows():
+            prompt += f"日期: {date.strftime('%Y-%m-%d')}, 开盘: {row['open_price']:.2f}, 收盘: {row['close_price']:.2f}, 最高: {row['high_price']:.2f}, 最低: {row['low_price']:.2f}, 成交量: {row['volume']}\n"
             
-    def align_and_prepare_data(self, stock_code, start_date=None, end_date=None):
-        """对齐K线数据和情感数据，准备模型输入"""
+        prompt += "\n最近的市场情绪数据:\n"
+        
+        # 添加情感数据
+        for date, row in recent_sentiment.iterrows():
+            prompt += f"日期: {date.strftime('%Y-%m-%d')}, 情感得分: {row['sentiment_mean']:.2f}, 评论数: {row['comment_count']}\n"
+            
+        prompt += f"""
+请仔细分析这些数据，并给出:
+1. 未来90天(从{pd.Timestamp.now().strftime('%Y-%m-%d')}到{(pd.Timestamp.now() + pd.Timedelta(days=90)).strftime('%Y-%m-%d')})的每日收盘价预测
+2. 每个预测的置信度(0-1之间)
+3. 主要影响因素分析
+
+注意:
+- 必须预测完整的90天数据
+- 每天都需要有具体的预测价格
+- 预测应考虑历史趋势、市场情绪、技术指标等多个因素
+- 预测结果应该反映真实的市场波动
+
+请以JSON格式返回，格式如下:
+{{
+    "predictions": [
+        {{"date": "YYYY-MM-DD", "price": float, "confidence": float}}
+        // 需要90天的完整预测数据
+    ],
+    "analysis": "详细的分析文本",
+    "factors": ["影响因素1", "影响因素2", "影响因素3"]
+}}
+"""
+        return prompt
+
+    async def predict_with_ollama(self, messages):
+        """使用ollama进行预测"""
         try:
-            # 获取数据
-            kline_data = self.get_kline_data(stock_code, start_date, end_date)
-            sentiment_data = self.get_sentiment_data(stock_code)
-            
-            if kline_data is None or sentiment_data is None:
-                return None, None
-                
-            # 打印数据范围信息
-            self.logger.info(f"K线数据范围: {kline_data.index.min()} 到 {kline_data.index.max()}")
-            self.logger.info(f"情感数据范围: {sentiment_data.index.min()} 到 {sentiment_data.index.max()}")
-            
-            # 确定共同的日期范围
-            start_date = max(kline_data.index.min(), sentiment_data.index.min())
-            end_date = min(kline_data.index.max(), sentiment_data.index.max())
-            
-            # 截取共同时间范围的数据
-            kline_data = kline_data[start_date:end_date]
-            sentiment_data = sentiment_data[start_date:end_date]
-            
-            # 对齐数据
-            aligned_data = pd.merge(
-                kline_data,
-                sentiment_data,
-                left_index=True,
-                right_index=True,
-                how='inner'
-            )
-            
-            # 检查是否有足够的数据
-            if len(aligned_data) < self.time_steps:
-                self.logger.error(f"数据量不足: 只有{len(aligned_data)}条记录，需要至少{self.time_steps}条")
-                return None, None
-                
-            # 处理缺失值
-            if aligned_data.isnull().any().any():
-                self.logger.warning("发现缺失值，使用前向填充方法处理")
-                aligned_data = aligned_data.ffill()
-            
-            # 准备特征
-            price_features = aligned_data[['close_price']].values
-            sentiment_features = aligned_data[['sentiment_mean']].values
-            
-            # 数据归一化
-            price_scaled = self.scaler_price.fit_transform(price_features)
-            sentiment_scaled = self.scaler_sentiment.fit_transform(sentiment_features)
-            
-            # 创建时间序列数据
-            X_price, X_sentiment, y = [], [], []
-            
-            for i in range(len(aligned_data) - self.time_steps):
-                X_price.append(price_scaled[i:(i + self.time_steps)])
-                X_sentiment.append(sentiment_scaled[i:(i + self.time_steps)])
-                y.append(price_scaled[i + self.time_steps])
-                
-            X_price = np.array(X_price)
-            X_sentiment = np.array(X_sentiment)
-            y = np.array(y)
-            
-            self.logger.info(f"成功准备训练数据: {len(X_price)}组")
-            return (X_price, X_sentiment, y), aligned_data
-            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    self.ollama_url,
+                    json={
+                        "model": "llama3.2",
+                        "messages": messages,
+                        "stream": False
+                    },
+                    headers={
+                        'Content-Type': 'application/json'
+                    }
+                ) as response:
+                    if response.status != 200:
+                        error_text = await response.text()
+                        self.logger.error(f"Ollama API错误响应: {error_text}")
+                        raise Exception(f"Ollama API返回错误: {response.status}")
+                    
+                    result = await response.json()
+                    return result
+                    
         except Exception as e:
-            self.logger.error(f"准备数据时出错: {e}", exc_info=True)
-            return None, None
-            
-    def build_model(self):
-        """构建多模态融合模型"""
-        try:
-            # K线数据分支 - 使用LSTM
-            price_input = Input(shape=(self.time_steps, 1), name='price_input')
-            price_lstm = LSTM(50, return_sequences=True)(price_input)
-            price_lstm = LSTM(50)(price_lstm)
-            price_dense = Dense(25)(price_lstm)
-            price_dropout = Dropout(0.2)(price_dense)
-            
-            # 情感数据分支 - 使用LSTM
-            sentiment_input = Input(shape=(self.time_steps, 1), name='sentiment_input')
-            sentiment_lstm = LSTM(50, return_sequences=True)(sentiment_input)
-            sentiment_lstm = LSTM(50)(sentiment_lstm)
-            sentiment_dense = Dense(25)(sentiment_lstm)
-            sentiment_dropout = Dropout(0.2)(sentiment_dense)
-            
-            # 合并两个分支
-            merged = Concatenate()([price_dropout, sentiment_dropout])
-            
-            # 输出层
-            dense = Dense(50, activation='relu')(merged)
-            dense = Dropout(0.2)(dense)
-            output = Dense(1)(dense)
-            
-            # 创建模型
-            model = Model(
-                inputs=[price_input, sentiment_input],
-                outputs=output
-            )
-            
-            # 编译模型
-            model.compile(
-                optimizer=Adam(learning_rate=0.001),
-                loss='mse',
-                metrics=['mae']
-            )
-            
-            self.model = model
-            self.logger.info("成功构建多模态融合模型")
-            return model
-            
-        except Exception as e:
-            self.logger.error(f"构建模型时出错: {e}", exc_info=True)
+            self.logger.error(f"调用Ollama API时出错: {e}", exc_info=True)
             return None
-            
-    def train_model(self, X_price, X_sentiment, y, validation_split=0.2, epochs=50, batch_size=32):
-        """训练模型"""
+
+    def parse_prediction_response(self, response):
+        """解析预测响应"""
         try:
-            if self.model is None:
-                self.build_model()
-                
-            if self.model is None:
+            if not response or 'message' not in response:
+                self.logger.error("无效的响应格式")
                 return None
                 
-            # 分割训练集和验证集
-            train_size = int(len(X_price) * (1 - validation_split))
+            content = response['message']['content']
+            self.logger.debug(f"原始响应内容: {content}")
             
-            X_price_train = X_price[:train_size]
-            X_price_val = X_price[train_size:]
-            X_sentiment_train = X_sentiment[:train_size]
-            X_sentiment_val = X_sentiment[train_size:]
-            y_train = y[:train_size]
-            y_val = y[train_size:]
+            # 提取JSON部分
+            start_idx = content.find('{')
+            end_idx = content.rfind('}') + 1
+            if start_idx == -1 or end_idx == 0:
+                self.logger.error("未找到JSON内容")
+                return None
+                
+            json_str = content[start_idx:end_idx]
             
-            # 训练模型
-            history = self.model.fit(
-                [X_price_train, X_sentiment_train],
-                y_train,
-                validation_data=([X_price_val, X_sentiment_val], y_val),
-                epochs=epochs,
-                batch_size=batch_size,
-                verbose=1
-            )
+            # 预处理JSON字符串
+            # 1. 移除可能的注释
+            json_lines = json_str.split('\n')
+            json_lines = [line for line in json_lines if not line.strip().startswith('//')]
+            json_str = '\n'.join(json_lines)
             
-            self.logger.info("模型训练完成")
+            # 2. 确保日期格式正确
+            import re
+            json_str = re.sub(r'(\d{4}-\d{2}-\d{2})"', r'\1"', json_str)
             
-            # 绘制训练历史
-            self.plot_training_history(history)
+            try:
+                result = json.loads(json_str)
+            except json.JSONDecodeError as e:
+                self.logger.error(f"JSON解析错误: {e}")
+                self.logger.error(f"JSON内容: {json_str}")
+                return None
             
-            return history
+            # 验证预测数据完整性
+            if 'predictions' not in result or not result['predictions']:
+                self.logger.error("预测数据为空")
+                return None
+                
+            # 生成90天的预测数据
+            start_date = pd.Timestamp.now()
+            dates = []
+            prices = []
+            
+            # 如果预测数据不足90天，使用最后一天的预测补齐
+            last_price = None
+            for i in range(self.future_days):
+                target_date = start_date + pd.Timedelta(days=i+1)
+                
+                # 查找当天的预测
+                price_found = False
+                for pred in result['predictions']:
+                    pred_date = pd.to_datetime(pred['date'])
+                    if pred_date.date() == target_date.date():
+                        prices.append(pred['price'])
+                        dates.append(target_date)
+                        last_price = pred['price']
+                        price_found = True
+                        break
+                
+                if not price_found and last_price is not None:
+                    # 使用最后一个有效预测
+                    prices.append(last_price)
+                    dates.append(target_date)
+            
+            if len(prices) < self.future_days:
+                self.logger.warning(f"预测数据不足90天，实际天数: {len(prices)}")
+                if len(prices) == 0:
+                    return None
+                
+                # 使用最后一个价格补齐到90天
+                last_price = prices[-1]
+                while len(prices) < self.future_days:
+                    next_date = dates[-1] + pd.Timedelta(days=1)
+                    prices.append(last_price)
+                    dates.append(next_date)
+            
+            return np.array(prices), dates, result.get('analysis', ''), result.get('factors', [])
             
         except Exception as e:
-            self.logger.error(f"训练模型时出错: {e}", exc_info=True)
+            self.logger.error(f"解析预测响应时出错: {e}", exc_info=True)
             return None
-            
-    def plot_training_history(self, history):
-        """绘制训练历史"""
-        try:
-            plt.figure(figsize=(12, 4))
-            
-            # 绘制损失
-            plt.subplot(1, 2, 1)
-            plt.plot(history.history['loss'], label='训练损失')
-            plt.plot(history.history['val_loss'], label='验证损失')
-            plt.title('模型损失')
-            plt.xlabel('Epoch')
-            plt.ylabel('损失')
-            plt.legend()
-            
-            # 绘制MAE
-            plt.subplot(1, 2, 2)
-            plt.plot(history.history['mae'], label='训练MAE')
-            plt.plot(history.history['val_mae'], label='验证MAE')
-            plt.title('平均绝对误差')
-            plt.xlabel('Epoch')
-            plt.ylabel('MAE')
-            plt.legend()
-            
-            # 保存图片
-            plot_dir = os.path.join(os.path.dirname(__file__), 'plots')
-            if not os.path.exists(plot_dir):
-                os.makedirs(plot_dir)
-            
-            plt.savefig(os.path.join(plot_dir, f'training_history_{datetime.now().strftime("%Y%m%d_%H%M%S")}.png'))
-            plt.close()
-            
-        except Exception as e:
-            self.logger.error(f"绘制训练历史时出错: {e}", exc_info=True)
-            
-    def predict_future(self, last_price_sequence, last_sentiment_sequence):
+
+    async def predict_future(self, stock_code, kline_data, sentiment_data):
         """预测未来价格"""
         try:
-            if self.model is None:
-                self.logger.error("模型未训练")
+            # 准备提示词
+            prompt = self.prepare_prompt(kline_data, sentiment_data, stock_code)
+            
+            # 构建消息
+            messages = [
+                {"role": "system", "content": "你是一个专业的股票分析师，精通技术分析和情感分析。"},
+                {"role": "user", "content": prompt}
+            ]
+            
+            # 调用ollama
+            response = await self.predict_with_ollama(messages)
+            if response is None:
                 return None
                 
-            future_predictions = []
-            current_price_seq = last_price_sequence.copy()
-            current_sentiment_seq = last_sentiment_sequence.copy()
+            # 解析响应
+            result = self.parse_prediction_response(response)
+            if result is None:
+                return None
+                
+            predictions, dates, analysis, factors = result
             
-            for _ in range(self.future_days):
-                # 预测下一天
-                next_pred = self.model.predict(
-                    [
-                        current_price_seq.reshape(1, self.time_steps, 1),
-                        current_sentiment_seq.reshape(1, self.time_steps, 1)
-                    ],
-                    verbose=0
-                )
-                
-                future_predictions.append(next_pred[0, 0])
-                
-                # 更新序列
-                current_price_seq = np.roll(current_price_seq, -1)
-                current_price_seq[-1] = next_pred[0, 0]
-                
-                # 简单复制最后一天的情感数据
-                current_sentiment_seq = np.roll(current_sentiment_seq, -1)
-                current_sentiment_seq[-1] = current_sentiment_seq[-2]
-                
-            # 反归一化预测结果
-            predictions_reshaped = np.array(future_predictions).reshape(-1, 1)
-            return self.scaler_price.inverse_transform(predictions_reshaped)
+            self.logger.info("预测完成")
+            self.logger.info(f"分析: {analysis}")
+            self.logger.info(f"影响因素: {factors}")
+            
+            return predictions, dates, analysis, factors
             
         except Exception as e:
             self.logger.error(f"预测未来价格时出错: {e}", exc_info=True)
             return None
-            
+
     def __del__(self):
         """清理资源"""
         if hasattr(self, 'engine'):
