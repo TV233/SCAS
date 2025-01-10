@@ -33,9 +33,17 @@ export default defineConfig(configEnv => {
       host: '0.0.0.0',
       port: 9527,
       open: true,
-      proxy: createViteProxy(viteEnv, configEnv.command === 'serve'),
       fs: {
         cachedChecks: false
+      },
+      proxy: {
+        ...createViteProxy(viteEnv, configEnv.command === 'serve'),
+        '^/api/chat': {
+          target: 'http://127.0.0.1:11434',
+          changeOrigin: true,
+          secure: false,
+          rewrite: (path) => path
+        }
       }
     },
     preview: {

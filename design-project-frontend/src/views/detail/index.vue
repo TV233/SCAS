@@ -12,6 +12,7 @@ import FinancialChart from './components/FinancialChart.vue';
 import WordCloudChart from './components/WordCloudChart.vue';
 import CorrelationChart from './components/CorrelationChart.vue';
 import PredictionChart from './components/PredictionChart.vue';
+import AIChatBox from './components/AIChatBox.vue';
 const route = useRoute();
 const router = useRouter();
 
@@ -35,6 +36,12 @@ const {
   fetchPredictionData,
   fetchPredictionSummary
 } = useStockData();
+
+const showChat = ref(false);
+
+const toggleChat = () => {
+  showChat.value = !showChat.value;
+};
 
 const goBack = () => {
   router.back();
@@ -133,6 +140,20 @@ onMounted(async () => {
     >
       <WordCloudChart :word-freq-data="wordFreqData" />
     </ACard>
+    <AButton
+      class="fixed bottom-5 right-5 z-50"
+      type="primary"
+      shape="circle"
+      size="large"
+      @click="toggleChat"
+    >
+      <icon-material-symbols:chat />
+    </AButton>
+
+    <AIChatBox
+      :visible="showChat"
+      @close="showChat = false"
+    />
   </div>
 </template>
 
