@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useRoute, useRouter } from 'vue-router';
 import { onMounted, ref } from 'vue';
+import { message } from 'ant-design-vue';
 import { request } from '@/service/request';
 import 'echarts-wordcloud';
 import StockBasicInfo from './components/StockBasicInfo.vue';
@@ -13,6 +14,7 @@ import WordCloudChart from './components/WordCloudChart.vue';
 import CorrelationChart from './components/CorrelationChart.vue';
 import PredictionChart from './components/PredictionChart.vue';
 import AIChatBox from './components/AIChatBox.vue';
+
 const route = useRoute();
 const router = useRouter();
 
@@ -27,6 +29,7 @@ const {
   correlationData,
   predictionData,
   predictionSummary,
+  userPortrait,
   fetchStockFinancialData,
   fetchStockDetailData,
   fetchKlineData,
@@ -34,7 +37,8 @@ const {
   fetchWordFrequencyData,
   fetchSentimentCorrelation,
   fetchPredictionData,
-  fetchPredictionSummary
+  fetchPredictionSummary,
+  fetchUserPortrait
 } = useStockData();
 
 const showChat = ref(false);
@@ -47,7 +51,7 @@ const goBack = () => {
   router.back();
 };
 
-const onAdd = async code => {
+const onAdd = async (code: string) => {
   try {
     const response = await request({
       url: '/favor',
@@ -61,12 +65,12 @@ const onAdd = async code => {
     });
 
     if (response) {
-      alert('添加成功');
+      message.success('添加成功');
     } else {
-      alert('已在自选股中');
+      message.warning('已在自选股中');
     }
   } catch (error) {
-    // alert('已在自选股中');
+    message.error('添加失败');
   }
 };
 
@@ -99,7 +103,9 @@ onMounted(async () => {
           :stock-detail-data="stockDetailData"
           :stock-info-data="stockInfoData"
           :stock-code="stockCode"
+          :user-portrait="userPortrait"
           @add="onAdd"
+          @fetch-portrait="() => fetchUserPortrait(stockCode)"
         />
         <RatingChart :stock-detail-data="stockDetailData" />
       </ACard>

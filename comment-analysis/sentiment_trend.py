@@ -18,22 +18,28 @@ def generate_sentiment_trend(stock_code):
         
     df = pd.read_csv(file_path)
     
-    # 转换评论时间格式，根据月份判断年份
+    # 转换评论时间格式，根据1月11日判断年份
     def get_date_with_year(date_str):
-        # 处理格式如 "12-26 02:31"
-        date_parts = date_str.split(' ')[0]  # 先分割日期和时间
-        month, day = map(int, date_parts.split('-'))  # 分别获取月和日
-        
-        current_year = datetime.now().year
-        current_month = datetime.now().month
-        current_day = datetime.now().day
-        
-        # 如果当前是2024年，且评论日期是超过当前日期的，则年份应为2023
-        year = current_year - 1 if (month >= current_month and day > current_day) else current_year
-        
-        return pd.to_datetime(f'{year}-{date_str}', format='%Y-%m-%d %H:%M')
+        try:
+            # 处理格式如 "12-26 02:31"
+            date_parts = date_str.split(' ')[0]  # 先分割日期和时间
+            month, day = map(int, date_parts.split('-'))  # 分别获取月和日
+            
+            # 根据1月11日判断年份
+            if month == 1 and day <= 11:
+                year = 2025
+            else:
+                year = 2024
+            
+            return pd.to_datetime(f'{year}-{date_str}', format='%Y-%m-%d %H:%M')
+        except Exception as e:
+            print(f"日期转换错误: {date_str}, 错误: {e}")
+            return None
     
     df['comment_date'] = df['update_time'].apply(get_date_with_year)
+    
+    # 过滤掉无效日期
+    df = df.dropna(subset=['comment_date'])
     
     # 按日期分组计算平均情感值
     daily_sentiment = df.groupby(df['comment_date'].dt.date)['sentiment'].agg(['mean', 'count']).reset_index()

@@ -4,8 +4,8 @@
     <div class="prediction-summary mt-4 p-4 bg-gray-50 rounded">
       <p class="text-lg font-medium">预测总结</p>
       <p v-if="props.summaryData?.mostAccurateModel" class="mt-2">
-        在三个模型中，本次预测置信度最高的模型为：{{ props.summaryData.mostAccurateModel }}，
-        其预测显示当前股票在：
+        在三个模型中，本次预测准确率最高的模型为：{{ props.summaryData.mostAccurateModel }}，
+        其预测显示当前股票价格变化趋势为：
       </p>
       <ul class="list-disc list-inside mt-2">
         <li>1周内：<span :class="getChangeClass(props.summaryData?.oneWeekChange)">
@@ -19,7 +19,7 @@
         </span></li>
       </ul>
       <p class="mt-2">
-        模型置信度：{{ formatPercentage(props.summaryData?.modelAccuracy) }}
+        本次预测中，该模型的预测准确率为：{{ formatPercentage(props.summaryData?.modelAccuracy) }}
       </p>
     </div>
   </div>

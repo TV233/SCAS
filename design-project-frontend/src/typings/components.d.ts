@@ -67,6 +67,7 @@ declare module 'vue' {
     'IconMaterialSymbols:arrowForwardIos': typeof import('~icons/material-symbols/arrow-forward-ios')['default']
     'IconMaterialSymbols:chat': typeof import('~icons/material-symbols/chat')['default']
     'IconMaterialSymbols:close': typeof import('~icons/material-symbols/close')['default']
+    'IconMaterialSymbols:personOutline': typeof import('~icons/material-symbols/person-outline')['default']
     'IconMaterialSymbolsLight:addRounded': typeof import('~icons/material-symbols-light/add-rounded')['default']
     IconMdiDrag: typeof import('~icons/mdi/drag')['default']
     IconMdiRefresh: typeof import('~icons/mdi/refresh')['default']

@@ -63,6 +63,10 @@ interface PredictionSummary {
   modelAccuracy: number;
 }
 
+interface UserPortrait {
+  content: string;
+}
+
 export function useStockData() {
   const stockDetailData = ref<StockDetailData>({} as StockDetailData);
   const stockInfoData = ref<StockInfoData>({} as StockInfoData);
@@ -81,6 +85,7 @@ export function useStockData() {
   const correlationData = ref([]);
   const predictionData = ref<PredictionData[]>([]);
   const predictionSummary = ref<PredictionSummary>({} as PredictionSummary);
+  const userPortrait = ref<UserPortrait>({} as UserPortrait);
 
   async function fetchStockFinancialData(stockCode: string) {
     try {
@@ -232,6 +237,44 @@ export function useStockData() {
     }
   }
 
+  async function fetchUserPortrait(stockCode: string) {
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: "llama3.2",
+          messages: [
+            {
+              role: "user",
+              content: `作为一个股票分析专家，请分析股票代码${stockCode}的公司用户画像，包括用户群体特征、消费能力、消费习惯等方面。请给出详细的分析。`
+            }
+          ],
+          stream: false
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (result?.message?.content) {
+        userPortrait.value = {
+          content: result.message.content
+        };
+      }
+    } catch (error) {
+      console.error('Error fetching user portrait:', error);
+      userPortrait.value = {
+        content: '抱歉，获取用户画像失败，请稍后重试。'
+      };
+    }
+  }
+
   return {
     stockDetailData,
     stockInfoData,
@@ -248,6 +291,8 @@ export function useStockData() {
     predictionData,
     predictionSummary,
     fetchPredictionData,
-    fetchPredictionSummary
+    fetchPredictionSummary,
+    userPortrait,
+    fetchUserPortrait
   };
 }

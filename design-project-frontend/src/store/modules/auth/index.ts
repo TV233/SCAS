@@ -58,23 +58,30 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
       const response = await fetchLogin(userName, password);
       const loginToken = response.data;
 
-      console.log('Login Token:', loginToken); // 调试输出
+      console.log('Login Token:', loginToken);
+
+      // 存储 token
       localStg.set('token', loginToken);
+      token.value = loginToken.token;
+
       const pass = await loginByToken(loginToken);
-//
 
       if (pass) {
         await routeStore.initAuthRoute();
-
-        if (redirect) {
-          await redirectFromLogin();
-        }
 
         if (routeStore.isInitAuthRoute) {
           window.$notification?.success({
             message: $t('page.login.common.loginSuccess'),
             description: $t('page.login.common.welcomeBack', { username: userInfo.username })
           });
+        }
+
+        // 登录成功后刷新页面
+        if (redirect) {
+          // 等待通知显示完成后再刷新
+          setTimeout(() => {
+            window.location.reload();
+          }, 1000);
         }
       }
     } catch (error) {
@@ -88,27 +95,37 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
 
 
   async function loginByToken(loginToken: Api.Auth.LoginToken) {
-    // 1. 存储在本地存储中，后续请求需要它在 headers 中
-    // localStg.set('token', loginToken.token);
+    // 先更新响应式引用
+    token.value = loginToken.token;
+
+    // 再存储到 localStorage
     localStg.set('refreshToken', loginToken.refreshToken);
 
-    // 2. 获取用户信息
+    // 获取用户信息
     const pass = await getUserInfo();
 
+    // 再次确保 token 是最新的
     if (pass) {
       token.value = loginToken.token;
-      return true;
     }
 
-    return false;
+    return pass;
   }
 
   async function getUserInfo() {
     const { data: info, error } = await fetchGetUserInfo();
 
     if (!error) {
-      // update store
-      Object.assign(userInfo, info);
+      // 使用解构赋值来触发响应式更新
+      const { userId, userName, username } = info;
+
+      // 逐个更新响应式属性
+      userInfo.userId = userId;
+      userInfo.userName = userName;
+      userInfo.username = username;
+
+      // 强制更新 token 以触发 isLogin 的重新计算
+      token.value = token.value;
 
       return true;
     }

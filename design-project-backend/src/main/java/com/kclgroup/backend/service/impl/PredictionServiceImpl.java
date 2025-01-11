@@ -65,8 +65,7 @@ public class PredictionServiceImpl extends ServiceImpl<PredictionMapper, Predict
                 // 找到不同时间段的预测
                 Prediction weekPrediction = findPredictionForDays(predictions, 7);
                 Prediction monthPrediction = findPredictionForDays(predictions, 30);
-                // 对于三个月预测，直接使用最远的预测数据
-                Prediction threeMonthPrediction = !predictions.isEmpty() ? predictions.get(0) : null;
+                Prediction threeMonthPrediction = findPredictionForDays(predictions, 90);
 
                 System.out.println("一周预测: " + (weekPrediction != null ? weekPrediction.getPredictedPrice() : "null"));
                 System.out.println("一月预测: " + (monthPrediction != null ? monthPrediction.getPredictedPrice() : "null"));
